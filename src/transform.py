@@ -18,8 +18,6 @@ import arrow  # type: ignore
 class TransformConfig:
     target_timezone: str = os.getenv("TARGET_TZ", "America/New_York")
     time_format: str = "YYYY-MM-DDTHH:mm:ss"
-    # Mapping from logical ICS attribute name -> output field name
-    # NOTE: Summary intentionally mapped to 'speaker' per provided example, while 'title' left blank.
     field_mappings: Dict[str, str] = field(
         default_factory=lambda: {
             "uid": "guid",
@@ -28,14 +26,12 @@ class TransformConfig:
             "url": "urlRef",
             "categories": "series",
             "description": "content",
-            "name": "speaker",  # ICS 'SUMMARY'
+            "name": "speaker",
         }
     )
-    # Fields from the raw event to ignore entirely
     masked_fields: Set[str] = field(
         default_factory=lambda: {"dtstamp", "sequence", "transp", "class"}
     )
-    # Static placeholder values always added / overriding.
     placeholders: Dict[str, str] = field(
         default_factory=lambda: {
             "title": "",
@@ -44,23 +40,30 @@ class TransformConfig:
             "itemType": "advertisement",
         }
     )
-    # Copy operations: new_field -> existing mapped field (post-mapping) to duplicate
     copies: Dict[str, str] = field(default_factory=dict)
+    # New configuration knobs
+    join_categories: bool = True
+    categories_delimiter: str = ","
+    preserve_description_escapes: bool = True  # keep / add backslashes before , ;
+    collapse_whitespace_in_description: bool = True
 
 
-def clean_text(value: str) -> str:
+def clean_text(value: str, collapse: bool = True) -> str:
     if not value:
         return ""
-    # Collapse whitespace produced by ICS line folding
     value = value.replace("\r", "\n")
-    value = re.sub(r"\n+", " ", value)
-    value = re.sub(r"\s+", " ", value).strip()
+    if collapse:
+        value = re.sub(r"\n+", " ", value)
+        value = re.sub(r"\s+", " ", value).strip()
     return value
 
 
 def escape_commas(value: str) -> str:
-    # Example output retains backslashes before commas, ensure we preserve them.
-    return value.replace(",", "\\,")
+    return re.sub(r"(?<!\\),", r"\\,", value)
+
+
+def escape_semicolons(value: str) -> str:
+    return re.sub(r"(?<!\\);", r"\\;", value)
 
 
 def parse_location(raw: str | None) -> dict:
@@ -98,14 +101,20 @@ def transform_event(event, cfg: TransformConfig) -> dict:
         if attr in {"begin", "end"}:
             out[target] = format_time(val, cfg)
         elif attr == "description":
-            out[target] = clean_text(str(val))
+            desc = str(val)
+            if cfg.preserve_description_escapes:
+                desc = escape_commas(escape_semicolons(desc))
+            desc = clean_text(desc, collapse=cfg.collapse_whitespace_in_description)
+            out[target] = desc
         elif attr == "name":
             out[target] = escape_commas(str(val))
         elif attr == "categories":
-            # ICS library returns a set
             if isinstance(val, (set, list, tuple)):
-                out[target] = next(iter(val), "")
-            else:
+                if cfg.join_categories:
+                    out[target] = cfg.categories_delimiter.join(sorted(map(str, val)))
+                else:
+                    out[target] = next(iter(val), "")
+            else:  # single string
                 out[target] = str(val)
         else:
             out[target] = str(val)

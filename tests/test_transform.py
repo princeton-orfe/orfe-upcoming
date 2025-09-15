@@ -16,3 +16,11 @@ def test_transform_example_event():
     # Speaker encoded with escaped comma
     assert "Elynn Chen" in ev["speaker"]
     assert "startTime" in ev and "endTime" in ev
+
+
+def test_multiple_categories_join():
+    ics_multi = """BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Multi Cats//EN\nBEGIN:VEVENT\nUID:abc123\nDTSTART:20250101T120000Z\nDTEND:20250101T130000Z\nSUMMARY:Test\nCATEGORIES:CatA,CatB\nEND:VEVENT\nEND:VCALENDAR"""
+    cal = Calendar(ics_multi)
+    cfg = TransformConfig()
+    data = transform_calendar(cal, cfg)
+    assert data[0]["series"] in {"CatA,CatB", "CatB,CatA"}
