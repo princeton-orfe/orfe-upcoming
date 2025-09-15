@@ -46,6 +46,8 @@ class TransformConfig:
     categories_delimiter: str = ","
     preserve_description_escapes: bool = True  # keep / add backslashes before , ;
     collapse_whitespace_in_description: bool = True
+    # Control newline / fold representation in DESCRIPTION: space | literal_r | newline
+    represent_newlines_as: str = "space"
 
 
 def clean_text(value: str, collapse: bool = True) -> str:
@@ -104,7 +106,18 @@ def transform_event(event, cfg: TransformConfig) -> dict:
             desc = str(val)
             if cfg.preserve_description_escapes:
                 desc = escape_commas(escape_semicolons(desc))
-            desc = clean_text(desc, collapse=cfg.collapse_whitespace_in_description)
+            rep_mode = (cfg.represent_newlines_as or "space").lower()
+            collapse = cfg.collapse_whitespace_in_description and rep_mode == "space"
+            desc = clean_text(desc, collapse=collapse)
+            if rep_mode == "literal_r":
+                desc = desc.replace("\n", "\\r")
+            elif rep_mode == "newline":
+                # keep newlines
+                pass
+            elif rep_mode == "space":
+                pass
+            else:
+                desc = clean_text(desc, collapse=True)
             out[target] = desc
         elif attr == "name":
             out[target] = escape_commas(str(val))

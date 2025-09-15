@@ -24,3 +24,11 @@ def test_multiple_categories_join():
     cfg = TransformConfig()
     data = transform_calendar(cal, cfg)
     assert data[0]["series"] in {"CatA,CatB", "CatB,CatA"}
+
+
+def test_description_newline_literal_r():
+    ics_txt = """BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//EN\nBEGIN:VEVENT\nUID:nl1\nDTSTART:20250101T000000Z\nDTEND:20250101T010000Z\nSUMMARY:Speaker\nDESCRIPTION:Line one\\n Line two\nEND:VEVENT\nEND:VCALENDAR"""
+    cal = Calendar(ics_txt)
+    cfg = TransformConfig(represent_newlines_as="literal_r", preserve_description_escapes=False, collapse_whitespace_in_description=False)
+    data = transform_calendar(cal, cfg)
+    assert data[0]["content"].count("\\r") >= 1
