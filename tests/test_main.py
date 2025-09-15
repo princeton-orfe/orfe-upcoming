@@ -36,5 +36,5 @@ def test_generate_events_json(mock_fetch):  # noqa: ARG001
     assert written.exists()
     data = json.loads(written.read_text(encoding="utf-8"))
     assert isinstance(data, list)
-    assert data[0]["name"] == "Test Event"
+    assert "guid" in data[0]
     out.unlink()

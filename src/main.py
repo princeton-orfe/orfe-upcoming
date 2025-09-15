@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 import requests
 from ics import Calendar
+from .transform import transform_calendar, TransformConfig
 
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
 REPO_VARIABLE = os.getenv("REPO_VARIABLE", "default")
@@ -37,18 +38,8 @@ def manipulate_data(calendar: Calendar, variable: str) -> Calendar:
     return calendar
 
 
-def calendar_to_json(calendar: Calendar) -> list[dict]:
-    events = []
-    for event in calendar.events:
-        events.append(
-            {
-                "name": event.name,
-                "begin": str(event.begin),
-                "end": str(event.end),
-                "description": event.description,
-            }
-        )
-    return events
+def calendar_to_json(calendar: Calendar) -> list[dict]:  # legacy fallback
+    return transform_calendar(calendar)
 
 
 def generate_events_json(
@@ -63,7 +54,9 @@ def generate_events_json(
     raw = fetch_ics(ics_url)
     calendar = Calendar(raw)
     manipulated = manipulate_data(calendar, repo_variable)
-    data = calendar_to_json(manipulated)
+    # Apply transformation config (future: load custom config)
+    cfg = TransformConfig()
+    data = transform_calendar(manipulated, cfg)
     out_path = Path(output_path)
     out_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return out_path
