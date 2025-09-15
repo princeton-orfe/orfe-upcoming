@@ -132,7 +132,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: events-json
-          path: ${{ env.OUTPUT_FILE }}
+          path: ${{ env.OUTPUT_FILE || 'events.json' }}
         if: steps.check_change.outputs.skip != 'true'
       - name: Reset failure streak on success
         if: success()
