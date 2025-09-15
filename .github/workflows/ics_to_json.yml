@@ -7,9 +7,9 @@ on:
         required: false
         default: 'false'
       enrich_titles:
-        description: 'Fetch event page subtitle into title field'
+        description: 'Fetch event page subtitle into title field (default true)'
         required: false
-        default: 'false'
+        default: 'true'
   schedule:
     - cron: '0 * * * *'
 
@@ -20,12 +20,11 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     env:
-      # Repository variables (set in Settings > Variables > Repository variables)
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
-      ENRICH_TITLES: ${{ github.event.inputs.enrich_titles }}
+      MANUAL_ENRICH: ${{ github.event.inputs.enrich_titles }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -93,9 +92,21 @@ jobs:
             echo "ICS_URL is empty. Define repository variable 'ICS_URL'." >&2
             exit 1
           fi
+          # Decide enrichment: schedule always true; manual defaults true unless explicitly set false
+          ENRICH_EFFECTIVE="true"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            case "${MANUAL_ENRICH}" in
+              ""|"true"|"True"|"TRUE") ENRICH_EFFECTIVE="true" ;;
+              "false"|"False"|"FALSE") ENRICH_EFFECTIVE="false" ;;
+            esac
+          fi
           ENRICH_FLAG=""
-          if [ "${ENRICH_TITLES:-false}" = "true" ]; then ENRICH_FLAG="--enrich-titles"; fi
-          echo "Enrich titles flag: ${ENRICH_TITLES:-false}"
+          if [ "${ENRICH_EFFECTIVE}" = "true" ]; then
+            ENRICH_FLAG="--enrich-titles"
+            echo "Enrichment: enabled"
+          else
+            echo "Enrichment: disabled"
+          fi
           python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG}
       - name: Publish release asset (latest)
         env:
