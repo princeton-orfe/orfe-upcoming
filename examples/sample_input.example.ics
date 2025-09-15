@@ -1,0 +1,15 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//ORFE Upcoming Example//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:example-uid-1
+DTSTART:20250101T120000Z
+DTEND:20250101T130000Z
+SUMMARY:Example Speaker
+DESCRIPTION:Line one of description\n Line two continued
+URL:https://example.org/event/1
+CATEGORIES:Seminar,Colloquium
+LOCATION:Building 1 - Room 101
+END:VEVENT
+END:VCALENDAR

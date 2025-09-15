@@ -32,3 +32,18 @@ def test_description_newline_literal_r():
     cfg = TransformConfig(represent_newlines_as="literal_r", preserve_description_escapes=False, collapse_whitespace_in_description=False)
     data = transform_calendar(cal, cfg)
     assert data[0]["content"].count("\\r") >= 1
+
+
+def test_example_files_roundtrip():
+    # Uses the example ICS / expected JSON artifacts committed for validation.
+    import json, pathlib
+    base = pathlib.Path(__file__).resolve().parents[1] / "examples"
+    ics_path = base / "sample_input.example.ics"
+    expected_path = base / "sample_output.expected.json"
+    cfg = TransformConfig(represent_newlines_as="literal_r")
+    with open(ics_path, "r", encoding="utf-8") as f:
+        cal = Calendar(f.read())
+    produced = transform_calendar(cal, cfg)
+    with open(expected_path, "r", encoding="utf-8") as f:
+        expected = json.load(f)
+    assert produced == expected

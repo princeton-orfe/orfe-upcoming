@@ -1,0 +1,16 @@
+[
+  {
+    "guid": "example-uid-1",
+    "startTime": "2025-01-01T07:00:00",
+    "endTime": "2025-01-01T08:00:00",
+    "urlRef": "https://example.org/event/1",
+    "series": "Colloquium,Seminar",
+    "content": "Line one of description\\r Line two continued",
+    "speaker": "Example Speaker",
+    "location": {"name": "Room 101", "id": "", "detail": "Building 1"},
+    "title": "",
+    "cancelled": "",
+    "bannerImage": "",
+    "itemType": "advertisement"
+  }
+]
