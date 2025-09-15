@@ -21,7 +21,7 @@ def test_enrich_titles(monkeypatch):
     </body></html>
     """
 
-    def fake_get(url, timeout=15):  # noqa: ARG001
+    def fake_get(url, timeout=15, headers=None):  # noqa: ARG001, D401
         return DummyResp(html)
 
     monkeypatch.setattr("src.enrich.requests.get", fake_get)
