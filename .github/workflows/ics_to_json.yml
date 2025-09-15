@@ -39,20 +39,25 @@ jobs:
           fi
 
           python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" 
-      - name: Commit JSON to main (stable URL)
+      - name: Publish release asset (latest)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           : "${OUTPUT_FILE:=events.json}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- "${OUTPUT_FILE}" 2>/dev/null; then
-            echo "No changes in ${OUTPUT_FILE}";
-          else
-            git add "${OUTPUT_FILE}"
-            git commit -m "chore(data): update ${OUTPUT_FILE} [skip ci]" || echo "Nothing to commit"
-            git push origin HEAD:main
+          TAG=latest
+          TITLE="Latest events JSON"
+          BODY="Automated update of events feed."
+          # If release exists, delete it (so it's guaranteed to be 'latest')
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Deleting existing release $TAG to refresh timestamp";
+            gh release delete "$TAG" -y || true
           fi
-          echo "Stable raw URL: https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/${OUTPUT_FILE}" >> $GITHUB_STEP_SUMMARY
+          gh release create "$TAG" "$OUTPUT_FILE" \
+            --title "$TITLE" \
+            --notes "$BODY" \
+            --latest
+          echo "Release asset URL (public): https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${OUTPUT_FILE}" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload JSON artifact
         uses: actions/upload-artifact@v4
         with:
