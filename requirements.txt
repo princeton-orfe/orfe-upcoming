@@ -2,3 +2,4 @@ requests
 ics
 pytest
 arrow
+beautifulsoup4

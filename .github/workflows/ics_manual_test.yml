@@ -1,0 +1,56 @@
+name: ICS Manual Test (Bypass Hash)
+
+on:
+  workflow_dispatch:
+    inputs:
+      enrich_titles:
+        description: 'Fetch event page subtitle into title field'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  manual-test:
+    runs-on: ubuntu-latest
+    env:
+      ICS_URL: ${{ vars.ICS_URL }}
+      REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
+      ENRICH_TITLES: ${{ github.event.inputs.enrich_titles }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        run: pytest -q
+      - name: Generate (force bypass)
+        run: |
+          set -euo pipefail
+          : "${OUTPUT_FILE:=events.json}"; echo "OUTPUT_FILE=$OUTPUT_FILE"
+          if [ -z "${ICS_URL}" ]; then echo "ICS_URL not set" >&2; exit 1; fi
+          ENRICH_FLAG=""; if [ "${ENRICH_TITLES}" = "true" ]; then ENRICH_FLAG="--enrich-titles"; fi
+          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG}
+      - name: Publish transient release (manual-latest)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          : "${OUTPUT_FILE:=events.json}"
+          TAG=manual-latest
+          if gh release view "$TAG" >/dev/null 2>&1; then gh release delete "$TAG" -y || true; fi
+          gh release create "$TAG" "$OUTPUT_FILE" --title "Manual test latest" --notes "Manual test run $(date -u)" --latest=false
+          echo "Manual test asset: https://github.com/${GITHUB_REPOSITORY}/releases/tag/$TAG" >> $GITHUB_STEP_SUMMARY
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-events-json
+          path: events.json
