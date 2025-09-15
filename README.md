@@ -24,6 +24,9 @@ Automated pipeline that fetches a department ICS feed, applies a configurable tr
 	- `--ics-url` (override env / repo variable when iterating locally)
 * Real-world examples under `examples/` with a tolerant regression test.
 * Unit tests: fetch, transform logic, sample round‑trip, config behaviors.
+* Title enrichment (optional) scraping each event detail page's `<div class="event-subtitle">` into `title` when enabled.
+* Overwrite mode (env `ENRICH_OVERWRITE=1`) to replace existing titles instead of only filling empty ones.
+* Enrichment debug logging via `ENRICH_DEBUG=1` showing fetch/skip/overwrite decisions.
 
 ## Example Workflow (End-to-End)
 
@@ -61,6 +64,21 @@ python -m src.main --ics-url "$ICS_URL" --config transform_config.json --print-o
 Write to disk:
 ```bash
 python -m src.main --ics-url "$ICS_URL" --output events.json
+```
+
+Enrich titles (fill blanks only):
+```bash
+ENRICH_TITLES=1 python -m src.main --ics-url "$ICS_URL" --limit 2 --print-only
+```
+
+Force overwrite existing titles:
+```bash
+ENRICH_TITLES=1 ENRICH_OVERWRITE=1 python -m src.main --ics-url "$ICS_URL" --limit 2 --print-only
+```
+
+Verbose enrichment debugging:
+```bash
+ENRICH_TITLES=1 ENRICH_DEBUG=1 python -m src.main --ics-url "$ICS_URL" --limit 1 --print-only
 ```
 
 ### Exampls
@@ -104,7 +122,7 @@ cat events.json | head
 ```
 
 ## Possible Next Enhancements
-* Optional enrichment by scraping event detail pages (subtitle, images, room normalization).
+* Additional enrichment (images, room normalization, speaker bio extraction).
 * Additional text normalization (HTML entities, Unicode punctuation mapping).
 * Config-driven inclusion/exclusion filters (e.g., series allowlist).
 * Expose transform settings via env variables for GitHub UI override.
@@ -124,6 +142,7 @@ Tests cover:
 - ICS retrieval (mocked HTTP)
 - Placeholder manipulation pass-through
 - JSON generation to a file
+ - Title enrichment (skip vs fill) and overwrite behavior (`test_enrich_titles`, `test_enrich_overwrite`).
 
 ## Data Manipulation Stub
 `manipulate_data(calendar, variable)` remains a hook for future bespoke filtering / enrichment beyond the generic transform.

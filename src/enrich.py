@@ -53,8 +53,11 @@ def fetch_subtitle(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     return normalized
 
 
-def enrich_titles(events: List[Dict], enable: bool, session_cache: Optional[Dict[str, str]] = None) -> TitleEnrichmentStats:
+def enrich_titles(events: List[Dict], enable: bool, session_cache: Optional[Dict[str, str]] = None, overwrite: bool = False) -> TitleEnrichmentStats:
     """Mutate events list in-place adding subtitle to 'title' when available.
+
+    Debugging:
+        Set ENRICH_DEBUG=1 to emit detailed skip/update logging to stdout.
 
     Args:
         events: list of event dicts with 'urlRef'.
@@ -67,27 +70,48 @@ def enrich_titles(events: List[Dict], enable: bool, session_cache: Optional[Dict
     if not enable:
         return stats
     cache = session_cache if session_cache is not None else {}
-    for ev in events:
+    debug = os.getenv("ENRICH_DEBUG") in {"1", "true", "yes", "on"}
+    for idx, ev in enumerate(events):
         url = ev.get("urlRef") or ""
         if not url:
             stats.skipped_missing_url += 1
+            if debug:
+                print(f"[enrich] skip(no-url) event_index={idx}")
             continue
         stats.attempted += 1
         if url in cache:
             subtitle = cache[url]
+            if debug:
+                print(f"[enrich] cache-hit url={url} subtitle_len={len(subtitle)}")
         else:
             try:
                 subtitle = fetch_subtitle(url)
-            except Exception:
+            except Exception as e:
                 stats.errors += 1
                 cache[url] = ""
+                if debug:
+                    print(f"[enrich] error fetching url={url} err={e}")
                 continue
             cache[url] = subtitle
-        if subtitle:
-            # Only update if existing placeholder empty
-            if not ev.get("title"):
-                ev["title"] = subtitle
-                stats.updated += 1
+            if debug:
+                print(f"[enrich] fetched url={url} subtitle_len={len(subtitle)}")
+        if not subtitle:
+            if debug:
+                print(f"[enrich] skip(no-subtitle) url={url}")
+            continue
+        existing = ev.get("title")
+        # Decide whether to overwrite
+        should_overwrite = overwrite or existing is None or str(existing).strip() == ""
+        if should_overwrite:
+            ev["title"] = subtitle
+            stats.updated += 1
+            if debug:
+                action = "overwrote" if (existing and overwrite) else "updated"
+                print(f"[enrich] {action} url={url} new_title_len={len(subtitle)}")
+        else:
+            if debug:
+                snippet = str(existing)[:40].replace('\n', ' ')
+                print(f"[enrich] skip(has-title) url={url} existing_snippet={snippet!r} overwrite={overwrite}")
     return stats
 
 
@@ -95,3 +119,9 @@ def enrichment_enabled(cli_flag: bool) -> bool:
     if cli_flag:
         return True
     return os.getenv("ENRICH_TITLES", "0") in {"1", "true", "yes", "on"}
+
+
+def enrichment_overwrite_enabled(cli_flag: bool) -> bool:
+    if cli_flag:
+        return True
+    return os.getenv("ENRICH_OVERWRITE", "0") in {"1", "true", "yes", "on"}

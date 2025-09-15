@@ -15,7 +15,7 @@ from pathlib import Path
 import requests
 from ics import Calendar
 from .transform import transform_calendar, TransformConfig, load_config
-from .enrich import enrich_titles, enrichment_enabled
+from .enrich import enrich_titles, enrichment_enabled, enrichment_overwrite_enabled
 
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
 REPO_VARIABLE = os.getenv("REPO_VARIABLE", "default")
@@ -97,6 +97,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Fetch each event page and populate the 'title' field from .event-subtitle (network heavy)",
     )
+    p.add_argument(
+        "--enrich-overwrite",
+        action="store_true",
+        help="When enriching titles, overwrite existing non-empty titles instead of only filling blanks",
+    )
     return p.parse_args(argv)
 
 
@@ -109,10 +114,15 @@ def main(argv: list[str] | None = None) -> int:
     manipulated = manipulate_data(calendar, ns.repo_variable)
     cfg = load_config(config_path)
     data = transform_calendar(manipulated, cfg)
-    # Optional enrichment (network I/O)
-    if enrichment_enabled(ns.enrich_titles):
-        stats = enrich_titles(data, True)
-        print(f"Enriched titles: attempted={stats.attempted} updated={stats.updated} errors={stats.errors}")
+    # Optional enrichment (network I/O) - perform as late as possible just before output
+    do_enrich = enrichment_enabled(ns.enrich_titles)
+    overwrite = enrichment_overwrite_enabled(ns.enrich_overwrite)
+    if do_enrich:
+        stats = enrich_titles(data, True, overwrite=overwrite)
+        print(
+            f"Enriched titles: attempted={stats.attempted} updated={stats.updated} "
+            f"errors={stats.errors} overwrite={'true' if overwrite else 'false'}"
+        )
     if ns.limit is not None:
         data = data[: ns.limit]
     if ns.print_only:
