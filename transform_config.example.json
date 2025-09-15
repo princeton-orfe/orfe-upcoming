@@ -1,0 +1,21 @@
+{
+  "target_timezone": "America/New_York",
+  "time_format": "YYYY-MM-DDTHH:mm:ss",
+  "field_mappings": {
+    "uid": "guid",
+    "begin": "startTime",
+    "end": "endTime",
+    "url": "urlRef",
+    "categories": "series",
+    "description": "content",
+    "name": "speaker"
+  },
+  "masked_fields": ["dtstamp", "sequence", "transp", "class"],
+  "placeholders": {
+    "title": "",
+    "cancelled": "",
+    "bannerImage": "",
+    "itemType": "advertisement"
+  },
+  "copies": {}
+}

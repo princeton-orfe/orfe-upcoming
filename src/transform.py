@@ -6,9 +6,11 @@ time/location normalization for calendar events.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Set, Iterable
+from typing import Dict, List, Set, Iterable, Any
 import os
 import re
+import json
+from pathlib import Path
 import arrow  # type: ignore
 
 
@@ -127,3 +129,27 @@ def transform_calendar(calendar, cfg: TransformConfig | None = None) -> List[dic
     cfg = cfg or TransformConfig()
     events = [transform_event(ev, cfg) for ev in sorted(calendar.events, key=lambda e: e.begin or "")]
     return events
+
+
+def load_config(path: str | os.PathLike | None) -> TransformConfig:
+    """Load a TransformConfig from a JSON file if it exists; else defaults."""
+    if not path:
+        return TransformConfig()
+    p = Path(path)
+    if not p.exists():
+        return TransformConfig()
+    data: Dict[str, Any] = json.loads(p.read_text(encoding="utf-8"))
+    cfg = TransformConfig()
+    for field_name in [
+        "target_timezone",
+        "time_format",
+        "field_mappings",
+        "masked_fields",
+        "placeholders",
+        "copies",
+    ]:
+        if field_name in data and data[field_name] is not None:
+            setattr(cfg, field_name, data[field_name])
+    if isinstance(cfg.masked_fields, list):  # type: ignore
+        cfg.masked_fields = set(cfg.masked_fields)  # type: ignore
+    return cfg

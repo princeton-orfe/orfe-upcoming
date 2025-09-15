@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 import requests
 from ics import Calendar
-from .transform import transform_calendar, TransformConfig
+from .transform import transform_calendar, TransformConfig, load_config
 
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
 REPO_VARIABLE = os.getenv("REPO_VARIABLE", "default")
@@ -75,13 +75,42 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         default=OUTPUT_FILE_ENV,
         help="Output JSON filepath (default comes from env OUTPUT_FILE or 'events.json')",
     )
+    p.add_argument(
+        "--config",
+        default=None,
+        help="Optional path to JSON transform config (default: transform_config.json if present)",
+    )
+    p.add_argument(
+        "--print-only",
+        action="store_true",
+        help="Print transformed JSON to stdout instead of writing file",
+    )
+    p.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit number of events in output (for local iteration)",
+    )
     return p.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     ns = _parse_args(argv or sys.argv[1:])
-    path = generate_events_json(ns.ics_url, ns.repo_variable, ns.output)
-    print(f"Wrote {path}")
+    # Determine config path fallback
+    config_path = ns.config or ("transform_config.json" if os.path.exists("transform_config.json") else None)
+    raw = fetch_ics(ns.ics_url)
+    calendar = Calendar(raw)
+    manipulated = manipulate_data(calendar, ns.repo_variable)
+    cfg = load_config(config_path)
+    data = transform_calendar(manipulated, cfg)
+    if ns.limit is not None:
+        data = data[: ns.limit]
+    if ns.print_only:
+        print(json.dumps(data, indent=2))
+        return 0
+    out_path = Path(ns.output)
+    out_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    print(f"Wrote {out_path} ({len(data)} events)")
     return 0
 
 
