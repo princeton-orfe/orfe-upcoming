@@ -15,7 +15,12 @@ from pathlib import Path
 import requests
 from ics import Calendar
 from .transform import transform_calendar, TransformConfig, load_config
-from .enrich import enrich_titles, enrichment_enabled, enrichment_overwrite_enabled
+from .enrich import (
+    enrich_titles,
+    enrichment_enabled,
+    enrichment_overwrite_enabled,
+    fill_title_fallback,
+)
 
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
 REPO_VARIABLE = os.getenv("REPO_VARIABLE", "default")
@@ -123,6 +128,11 @@ def main(argv: list[str] | None = None) -> int:
             f"Enriched titles: attempted={stats.attempted} updated={stats.updated} "
             f"errors={stats.errors} overwrite={'true' if overwrite else 'false'}"
         )
+        # Fallback: if no titles were populated at all, derive from speaker
+        if stats.updated == 0:
+            filled = fill_title_fallback(data, overwrite=False)
+            if filled:
+                print(f"Fallback populated {filled} titles from speaker field")
     if ns.limit is not None:
         data = data[: ns.limit]
     if ns.print_only:

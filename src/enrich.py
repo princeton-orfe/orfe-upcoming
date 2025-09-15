@@ -37,19 +37,30 @@ def fetch_subtitle(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
     }
-    resp = requests.get(url, timeout=timeout, headers=headers)
-    # If site still blocks, return empty silently (caller treats as miss)
+    debug = os.getenv("ENRICH_DEBUG") in {"1", "true", "yes", "on"}
+    try:
+        resp = requests.get(url, timeout=timeout, headers=headers)
+    except Exception as e:
+        if debug:
+            print(f"[enrich] request-error url={url} err={e}")
+        return ""
     try:
         resp.raise_for_status()
-    except Exception:
+    except Exception as e:
+        if debug:
+            print(f"[enrich] bad-status url={url} code={getattr(resp,'status_code',None)} err={e}")
         return ""
     soup = BeautifulSoup(resp.text, "html.parser")
     div = soup.find("div", class_="event-subtitle")
     if not div:
+        if debug:
+            print(f"[enrich] subtitle-missing url={url} length={len(resp.text)}")
         return ""
     # get_text with separator to retain spacing, then collapse any runs
     raw = div.get_text(separator=" ", strip=True)
     normalized = " ".join(raw.split())
+    if debug:
+        print(f"[enrich] subtitle-found url={url} len={len(normalized)}")
     return normalized
 
 
@@ -125,3 +136,20 @@ def enrichment_overwrite_enabled(cli_flag: bool) -> bool:
     if cli_flag:
         return True
     return os.getenv("ENRICH_OVERWRITE", "0") in {"1", "true", "yes", "on"}
+
+
+def fill_title_fallback(events: List[Dict], overwrite: bool = False) -> int:
+    """Fill empty title from speaker field as a safety fallback.
+
+    Returns number of titles filled. If overwrite=True, replaces non-empty titles.
+    """
+    count = 0
+    for ev in events:
+        speaker = ev.get("speaker")
+        if not speaker:
+            continue
+        existing = ev.get("title")
+        if overwrite or not existing or str(existing).strip() == "":
+            ev["title"] = speaker
+            count += 1
+    return count
