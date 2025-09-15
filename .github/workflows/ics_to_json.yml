@@ -108,7 +108,7 @@ jobs:
           else
             echo "Enrichment: disabled"
           fi
-          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG}
+          ENRICH_DEBUG=1 python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG}
       - name: Publish release asset (latest)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
