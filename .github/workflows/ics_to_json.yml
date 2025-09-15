@@ -1,6 +1,8 @@
 name: ICS to JSON
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
 
 permissions:
   contents: write
