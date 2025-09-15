@@ -18,18 +18,55 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      - name: Load failure streak
+        id: load_streak
+        run: |
+          if [ -f .ci/failure-streak ]; then
+            count=$(cat .ci/failure-streak || echo 0)
+          else
+            count=0
+          fi
+          echo "current=$count" >> "$GITHUB_OUTPUT"
+      - name: Check ICS change
+        id: check_change
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ICS_URL}" ]; then
+            echo "ICS_URL not set" >&2; exit 1; fi
+          echo "Fetching ICS for change detection: $ICS_URL"
+          curl -fsSL "$ICS_URL" -o current.ics
+          new_hash=$(sha256sum current.ics | cut -d ' ' -f1)
+          echo "New ICS SHA256: $new_hash"
+          prev_hash=""
+          if gh release view latest --json body >/dev/null 2>&1; then
+            prev_hash=$(gh release view latest --json body -q '.body' | grep -Eo 'ICS_SHA256:[0-9a-f]+' | cut -d: -f2 || echo "")
+          fi
+          echo "Previous ICS SHA256: ${prev_hash:-<none>}"
+          if [ "$new_hash" = "$prev_hash" ] && [ -n "$prev_hash" ]; then
+            echo "ICS unchanged; skipping generation." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "hash=$new_hash" >> "$GITHUB_OUTPUT"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
+        if: steps.check_change.outputs.skip != 'true'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+        if: steps.check_change.outputs.skip != 'true'
       - name: Run tests
         run: pytest -q
+        if: steps.check_change.outputs.skip != 'true'
       - name: Generate JSON
+        if: steps.check_change.outputs.skip != 'true'
         run: |
           set -euo pipefail
           echo "ICS_URL=${ICS_URL}"
@@ -44,12 +81,13 @@ jobs:
       - name: Publish release asset (latest)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: steps.check_change.outputs.skip != 'true'
         run: |
           set -euo pipefail
           : "${OUTPUT_FILE:=events.json}"
           TAG=latest
           TITLE="Latest events JSON"
-          BODY="Automated update of events feed."
+          BODY="Automated update of events feed.\nICS_SHA256:${{ steps.check_change.outputs.hash }}"
           # If release exists, delete it (so it's guaranteed to be 'latest')
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Deleting existing release $TAG to refresh timestamp";
@@ -65,3 +103,44 @@ jobs:
         with:
           name: events-json
           path: ${{ env.OUTPUT_FILE || 'events.json' }}
+        if: steps.check_change.outputs.skip != 'true'
+      - name: Reset failure streak on success
+        if: success()
+        run: |
+          mkdir -p .ci
+          prior=${{ steps.load_streak.outputs.current }}
+          if [ "$prior" != "0" ]; then
+            echo 0 > .ci/failure-streak
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .ci/failure-streak
+            git commit -m "chore(ci): reset failure streak to 0 [skip ci]" || true
+            git push origin HEAD:main || true
+          fi
+          echo "Failure streak reset (prior=$prior)." >> $GITHUB_STEP_SUMMARY
+      - name: Handle failure (increment streak, maybe open issue)
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ci
+          prior=${{ steps.load_streak.outputs.current }}
+          new=$((prior + 1))
+          echo $new > .ci/failure-streak
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .ci/failure-streak
+          git commit -m "chore(ci): failure streak $new [skip ci]" || true
+          git push origin HEAD:main || true
+          # Ensure label exists
+          gh label list --search ci-failure | grep -qi '^ci-failure' || gh label create ci-failure --color FF0000 --description "Automated CI failure alerts" || true
+          if [ "$new" -ge 3 ]; then
+            existing=$(gh issue list --state open --label ci-failure --search "ICS feed processing failures" --json number -q '.[0].number' || echo "")
+            if [ -z "$existing" ]; then
+              gh issue create --title "ICS feed processing failures (streak $new)" --label ci-failure --body "The ICS to JSON workflow has failed $new consecutive times. Please investigate logs." || true
+            else
+              gh issue comment "$existing" --body "Another failure (streak $new)." || true
+            fi
+          fi
+          echo "Failure streak incremented to $new" >> $GITHUB_STEP_SUMMARY
