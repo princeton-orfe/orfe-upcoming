@@ -17,6 +17,7 @@ from ics import Calendar
 
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
 REPO_VARIABLE = os.getenv("REPO_VARIABLE", "default")
+OUTPUT_FILE_ENV = os.getenv("OUTPUT_FILE", "events.json")
 
 
 def fetch_ics(url: str) -> str:
@@ -78,8 +79,8 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     )
     p.add_argument(
         "--output",
-        default="events.json",
-        help="Output JSON filepath (default: events.json)",
+        default=OUTPUT_FILE_ENV,
+        help="Output JSON filepath (default comes from env OUTPUT_FILE or 'events.json')",
     )
     return p.parse_args(argv)
 

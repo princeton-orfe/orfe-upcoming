@@ -3,15 +3,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     env:
-      # Prefer repository variable; allow secret override if you later move it to secrets
+      # Repository variables (set in Settings > Variables > Repository variables)
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
+      OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -28,15 +29,32 @@ jobs:
         run: pytest -q
       - name: Generate JSON
         run: |
+          set -euo pipefail
           echo "ICS_URL=${ICS_URL}"
+          : "${OUTPUT_FILE:=events.json}"  # default if unset/empty
+          echo "OUTPUT_FILE=${OUTPUT_FILE}"
           if [ -z "${ICS_URL}" ]; then
-            echo "ICS_URL is empty. Ensure repository variable 'ICS_URL' is defined." >&2
+            echo "ICS_URL is empty. Define repository variable 'ICS_URL'." >&2
             exit 1
           fi
-            
-          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output events.json
+
+          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" 
+      - name: Commit JSON to main (stable URL)
+        run: |
+          set -euo pipefail
+          : "${OUTPUT_FILE:=events.json}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- "${OUTPUT_FILE}" 2>/dev/null; then
+            echo "No changes in ${OUTPUT_FILE}";
+          else
+            git add "${OUTPUT_FILE}"
+            git commit -m "chore(data): update ${OUTPUT_FILE} [skip ci]" || echo "Nothing to commit"
+            git push origin HEAD:main
+          fi
+          echo "Stable raw URL: https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/${OUTPUT_FILE}" >> $GITHUB_STEP_SUMMARY
       - name: Upload JSON artifact
         uses: actions/upload-artifact@v4
         with:
           name: events-json
-          path: events.json
+          path: ${{ env.OUTPUT_FILE || 'events.json' }}
