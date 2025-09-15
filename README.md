@@ -1,31 +1,32 @@
 # ORFE Upcoming
 
-Automated pipeline that fetches a department ICS feed, applies a configurable transformation, and publishes a stable JSON file as a GitHub Release asset ( `releases/latest/download/events.json` ). No web server; pure scheduled + manual CI. Includes change detection, failure tracking, configurable field mapping, and real-world sample fixtures for regression testing.
+Automated pipeline that fetches a department ICS feed, applies a configurable transformation, and publishes a stable JSON file as a GitHub Release asset ( `releases/latest/download/events.json` ). Scheduled + manual CI. Includes change detection, failure tracking, configurable field mapping, and examples for regression testing.
 
 ## Current Features
 * Hourly + manual workflow (cron + `workflow_dispatch`).
-* Fetches ICS from repository variable `ICS_URL` (not a secret) and validates presence.
-* SHA256 change detection of raw ICS body: skips full run if unchanged (saves minutes / rate quota).
-* Transformation layer (`src/transform.py`) supporting:
+* Fetches ICS from repository variable `ICS_URL`.
+* SHA256 change detection of raw ICS body, skips run if unchanged.
+* Transformation layer (`src/transform.py`) for:
 	- Field mapping (UID -> guid, DTSTART/DTEND -> startTime/endTime, URL -> urlRef, CATEGORIES -> series, SUMMARY -> speaker, DESCRIPTION -> content)
 	- Category joining (order-insensitive comparisons in tests)
-	- Speaker / description escaping (commas & semicolons)
+	- Speaker / description escaping (commas or semicolons)
 	- Newline representation modes: `space`, `literal_r`, `newline`
 	- Timezone normalization (default `America/New_York`)
 	- Location heuristic splitting: `"DETAIL - NAME"` → `{"name": name, "detail": detail}` (with relaxed test tolerance for reversed cases)
-	- Static placeholders (`title`, `cancelled`, `bannerImage`, `itemType`)
-* Failure streak persistence (`.ci/failure-streak`) with automatic issue creation after 3 consecutive failures using the GitHub CLI.
+	- Static placeholders (`title`, `cancelled`, `bannerImage`, `itemType` - hardcoded)
+* Failure streak persistence (`.ci/failure-streak`) with automatic issue creation after 3 consecutive failures.
 * Release asset publishing (always overwrites a single `events.json` under the `latest` release tag) ensuring a stable URL:  
 	`https://github.com/<owner>/<repo>/releases/latest/download/events.json`
-* Local iteration flags in `src.main`:
+* Local iteration flags in `src.main` for testing:
 	- `--config` (JSON config file for transform overrides)
 	- `--print-only` (stdout instead of writing file)
 	- `--limit N` (truncate output list for quick inspection)
 	- `--ics-url` (override env / repo variable when iterating locally)
-* Real-world example fixtures under `examples/` with a tolerant regression test.
+* Real-world examples under `examples/` with a tolerant regression test.
 * Unit tests: fetch, transform logic, sample round‑trip, config behaviors.
 
 ## Example Workflow (End-to-End)
+
 1. Set a repository variable `ICS_URL` (Settings → Variables → New variable) pointing to the upstream `.ics` feed.
 2. (Optional) Adjust transform behavior with an optional `transform_config.json` (copy from `transform_config.example.json` and tweak).
 3. Trigger the workflow manually (Actions → "ICS to JSON" → Run) or wait for the hourly cron.
@@ -62,7 +63,7 @@ Write to disk:
 python -m src.main --ics-url "$ICS_URL" --output events.json
 ```
 
-### Example Fixtures
+### Exampls
 Folder: `examples/`
 * `sample_input.example.ics` – curated real-world slice of the feed.
 * `sample_output.expected.json` – expected core subset for regression.
@@ -92,9 +93,6 @@ PY
 ```
 
 You can then curate / reduce that JSON before committing to keep the fixture concise.
-
-## Usage (Legacy Artifact Workflow)
-Earlier versions uploaded a build artifact instead of a release asset. The stable release asset approach has replaced this. (If you need the old artifact, retrieve from the specific run in Actions.)
 
 ### Local generation
 ```bash
