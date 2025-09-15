@@ -24,8 +24,8 @@ jobs:
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
-  FORCE_REBUILD: ${{ github.event.inputs.force || 'false' }}
-  ENRICH_TITLES: ${{ github.event.inputs.enrich_titles || 'false' }}
+      FORCE_REBUILD: ${{ github.event.inputs.force }}
+      ENRICH_TITLES: ${{ github.event.inputs.enrich_titles }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -121,7 +121,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: events-json
-          path: ${{ env.OUTPUT_FILE || 'events.json' }}
+          path: ${{ env.OUTPUT_FILE }}
         if: steps.check_change.outputs.skip != 'true'
       - name: Reset failure streak on success
         if: success()
