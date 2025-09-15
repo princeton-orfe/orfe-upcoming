@@ -9,8 +9,9 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     env:
-      ICS_URL: ${{ secrets.ICS_URL }}
-      REPO_VARIABLE: ${{ secrets.REPO_VARIABLE }}
+      # Prefer repository variable; allow secret override if you later move it to secrets
+      ICS_URL: ${{ vars.ICS_URL }}
+      REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -27,6 +28,12 @@ jobs:
         run: pytest -q
       - name: Generate JSON
         run: |
+          echo "ICS_URL=${ICS_URL}"
+          if [ -z "${ICS_URL}" ]; then
+            echo "ICS_URL is empty. Ensure repository variable 'ICS_URL' is defined." >&2
+            exit 1
+          fi
+            
           python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output events.json
       - name: Upload JSON artifact
         uses: actions/upload-artifact@v4
