@@ -15,6 +15,7 @@ from pathlib import Path
 import requests
 from ics import Calendar
 from .transform import transform_calendar, TransformConfig, load_config
+from .enrich import enrich_titles, enrichment_enabled
 
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
 REPO_VARIABLE = os.getenv("REPO_VARIABLE", "default")
@@ -91,6 +92,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         default=None,
         help="Limit number of events in output (for local iteration)",
     )
+    p.add_argument(
+        "--enrich-titles",
+        action="store_true",
+        help="Fetch each event page and populate the 'title' field from .event-subtitle (network heavy)",
+    )
     return p.parse_args(argv)
 
 
@@ -103,6 +109,10 @@ def main(argv: list[str] | None = None) -> int:
     manipulated = manipulate_data(calendar, ns.repo_variable)
     cfg = load_config(config_path)
     data = transform_calendar(manipulated, cfg)
+    # Optional enrichment (network I/O)
+    if enrichment_enabled(ns.enrich_titles):
+        stats = enrich_titles(data, True)
+        print(f"Enriched titles: attempted={stats.attempted} updated={stats.updated} errors={stats.errors}")
     if ns.limit is not None:
         data = data[: ns.limit]
     if ns.print_only:
