@@ -2,6 +2,9 @@ name: ICS to JSON
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -10,20 +13,23 @@ jobs:
       REPO_VARIABLE: ${{ secrets.REPO_VARIABLE }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
       - name: Run tests
-        run: pytest
+        run: pytest -q
       - name: Generate JSON
         run: |
           python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output events.json
       - name: Upload JSON artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: events-json
           path: events.json
