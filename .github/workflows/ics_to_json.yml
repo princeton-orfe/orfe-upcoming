@@ -2,7 +2,8 @@ name: ICS to JSON
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 * * * *'      # top of every hour (primary execution)
+    - cron: '*/5 * * * *'    # every 5 minutes (used for early verification; guarded)
 
 permissions:
   contents: write
@@ -18,6 +19,15 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      - name: Early-exit guard (only run full job at top of hour)
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            minute=$(date -u +%M)
+            if [ "$minute" != "00" ]; then
+              echo "Scheduled run at minute $minute (UTC): skipping heavy work (next full run at top of hour)." >> $GITHUB_STEP_SUMMARY
+              exit 0
+            fi
+          fi
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
