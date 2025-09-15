@@ -27,15 +27,30 @@ class TitleEnrichmentStats:
 
 
 def fetch_subtitle(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
-    """Fetch a page and return the first .event-subtitle div text (stripped)."""
-    resp = requests.get(url, timeout=timeout)
-    resp.raise_for_status()
+    """Fetch a page and return normalized subtitle text.
+
+    Adds a desktop User-Agent to avoid 403 responses and collapses internal
+    whitespace/newlines to single spaces.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    resp = requests.get(url, timeout=timeout, headers=headers)
+    # If site still blocks, return empty silently (caller treats as miss)
+    try:
+        resp.raise_for_status()
+    except Exception:
+        return ""
     soup = BeautifulSoup(resp.text, "html.parser")
     div = soup.find("div", class_="event-subtitle")
     if not div:
         return ""
-    text = div.get_text(separator=" ", strip=True)
-    return text or ""
+    # get_text with separator to retain spacing, then collapse any runs
+    raw = div.get_text(separator=" ", strip=True)
+    normalized = " ".join(raw.split())
+    return normalized
 
 
 def enrich_titles(events: List[Dict], enable: bool, session_cache: Optional[Dict[str, str]] = None) -> TitleEnrichmentStats:
