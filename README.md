@@ -81,7 +81,7 @@ Verbose enrichment debugging:
 ENRICH_TITLES=1 ENRICH_DEBUG=1 python -m src.main --ics-url "$ICS_URL" --limit 1 --print-only
 ```
 
-### Exampls
+### Examples
 Folder: `examples/`
 * `sample_input.example.ics` – curated real-world slice of the feed.
 * `sample_output.expected.json` – expected core subset for regression.
@@ -147,5 +147,4 @@ Tests cover:
 ## Data Manipulation Stub
 `manipulate_data(calendar, variable)` remains a hook for future bespoke filtering / enrichment beyond the generic transform.
 
----
-Questions or tweaks needed? Open an issue or adjust `transform_config.example.json` and iterate locally with `--print-only` before committing.
+Iterate locally with `--print-only` before committing.
