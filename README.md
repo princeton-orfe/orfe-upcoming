@@ -175,3 +175,43 @@ Tests cover:
 `manipulate_data(calendar, variable)` remains a hook for future bespoke filtering / enrichment beyond the generic transform.
 
 Iterate locally with `--print-only` before committing.
+
+## Configuration reference (env vars and inputs)
+
+These environment variables and workflow inputs control behavior at runtime.
+
+### Core runtime
+
+| Name | Scope | Type | Default | Purpose |
+|------|-------|------|---------|---------|
+| `ICS_URL` | CLI/CI | string | — | Upstream ICS feed URL. Supports http(s), `file://`, or local paths. |
+| `OUTPUT_FILE` | CLI/CI | string | `events.json` | Output JSON filename. |
+| `REPO_VARIABLE` | CLI/CI | string | `default` | Arbitrary variable passed to `manipulate_data` (currently unused). |
+
+### Enrichment and fallback
+
+| Name | Scope | Type | Default | Purpose |
+|------|-------|------|---------|---------|
+| `ENRICH_TITLES` | CLI/CI | bool | `false` (manual CLI), `true` (scheduled CI, manual workflow default) | Enable subtitle scraping to populate `title` from each event detail page. |
+| `ENRICH_OVERWRITE` | CLI/CI | bool | `false` | When enriching, overwrite non-empty `title` values instead of only filling blanks. |
+| `ENRICH_DEBUG` | CLI/CI | bool | `false` | Verbose enrichment logging (fetch/skip/overwrite decisions). |
+| `FALLBACK_PREPEND_TEXT` | CLI/CI | string | — | Prefix template for titles filled from `speaker`. Supports `{series}` placeholder; missing keys render empty and whitespace is collapsed. Max length: 128 chars. Example: `A {series} Talk by` → `A Optimization Seminar Talk by Alice`. |
+| `BOT_BYPASS_HEADER_VALUE` | CLI/CI | string | `1` | Value sent as `x-wdsoit-bot-bypass` header during enrichment requests. |
+
+Boolean envs accept: `1,true,yes,on` (case-insensitive) for true.
+
+### Transform parameters
+
+| Name | Scope | Type | Default | Purpose |
+|------|-------|------|---------|---------|
+| `TARGET_TZ` | CLI/CI | string | `America/New_York` | Target timezone for datetime normalization. |
+
+You can also provide a JSON config file via `--config` (copy from `transform_config.example.json`) to override mappings, placeholders, masks, etc.
+
+### GitHub Actions inputs (manual/scheduled)
+
+| Name | Workflow | Type | Default | Purpose |
+|------|----------|------|---------|---------|
+| `force` | `ICS to JSON` | input | `false` | Force regeneration even if ICS content hash is unchanged. |
+| `enrich_titles` | `ICS to JSON`, `ICS Manual Test` | input | `true` | Toggle enrichment on manual runs (scheduled runs always enrich). |
+
