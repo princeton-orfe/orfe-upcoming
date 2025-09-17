@@ -21,6 +21,9 @@ from .enrich import (
     enrichment_enabled,
     enrichment_overwrite_enabled,
     fill_title_fallback,
+    enrich_content,
+    enrichment_content_enabled,
+    enrichment_content_overwrite_enabled,
 )
 
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
@@ -123,6 +126,16 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="When enriching titles, overwrite existing non-empty titles instead of only filling blanks",
     )
+    p.add_argument(
+        "--enrich-content",
+        action="store_true",
+        help="Fetch each event page and populate the 'content' field from main body (network heavy)",
+    )
+    p.add_argument(
+        "--enrich-content-overwrite",
+        action="store_true",
+        help="When enriching content, overwrite existing non-empty content instead of only filling blanks",
+    )
     return p.parse_args(argv)
 
 
@@ -149,6 +162,16 @@ def main(argv: list[str] | None = None) -> int:
         filled = fill_title_fallback(data, overwrite=False)
         if filled:
             print(f"Fallback populated {filled} titles from speaker field")
+
+    # Optional content enrichment (independent of title enrichment)
+    do_content_enrich = enrichment_content_enabled(ns.enrich_content)
+    content_overwrite = enrichment_content_overwrite_enabled(ns.enrich_content_overwrite)
+    if do_content_enrich:
+        cstats = enrich_content(data, True, overwrite=content_overwrite)
+        print(
+            f"Enriched content: attempted={cstats.attempted} updated={cstats.updated} "
+            f"errors={cstats.errors} overwrite={'true' if content_overwrite else 'false'}"
+        )
     if ns.limit is not None:
         data = data[: ns.limit]
     if ns.print_only:

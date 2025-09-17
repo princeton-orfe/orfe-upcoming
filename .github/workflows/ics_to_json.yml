@@ -25,6 +25,8 @@ jobs:
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
+      ENRICH_CONTENT: ${{ vars.ENRICH_CONTENT }}
+      ENRICH_CONTENT_OVERWRITE: ${{ vars.ENRICH_CONTENT_OVERWRITE }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       MANUAL_ENRICH: ${{ github.event.inputs.enrich_titles }}
     steps:

@@ -13,6 +13,10 @@ from typing import List, Dict, Optional
 import os
 import requests
 from bs4 import BeautifulSoup  # type: ignore
+try:  # optional dependency for Markdown conversion
+    from markdownify import markdownify as _md
+except Exception:  # pragma: no cover - optional
+    _md = None  # type: ignore
 
 
 DEFAULT_TIMEOUT = 15
@@ -20,6 +24,14 @@ DEFAULT_TIMEOUT = 15
 
 @dataclass
 class TitleEnrichmentStats:
+    attempted: int = 0
+    updated: int = 0
+    skipped_missing_url: int = 0
+    errors: int = 0
+
+
+@dataclass
+class ContentEnrichmentStats:
     attempted: int = 0
     updated: int = 0
     skipped_missing_url: int = 0
@@ -64,6 +76,149 @@ def fetch_subtitle(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     if debug:
         print(f"[enrich] subtitle-found url={url} len={len(normalized)}")
     return normalized
+
+
+def fetch_content_body(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
+    """Fetch a page and return main content as text/markdown/html.
+
+        Behavior is controlled by ENRICH_CONTENT_FORMAT env var:
+            - "text" (default): plain text with paragraphs separated by blank lines
+            - "markdown": basic Markdown converted from the HTML fragment
+            - "html": sanitized inner HTML fragment of the details section
+
+        Extraction targets a few structures, prioritizing a container matching
+        `.events-detail-main` (or `.event-details-main`) that has a header `.details`.
+        Falls back to generic containers otherwise.
+        """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "x-wdsoit-bot-bypass": os.getenv("BOT_BYPASS_HEADER_VALUE", "1"),
+    }
+    debug = os.getenv("ENRICH_DEBUG") in {"1", "true", "yes", "on"}
+    try:
+        resp = requests.get(url, timeout=timeout, headers=headers)
+    except Exception as e:
+        if debug:
+            print(f"[enrich] content request-error url={url} err={e}")
+        return ""
+    try:
+        resp.raise_for_status()
+    except Exception as e:
+        if debug:
+            print(f"[enrich] content bad-status url={url} code={getattr(resp,'status_code',None)} err={e}")
+        return ""
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    # Determine desired output format
+    fmt = (os.getenv("ENRICH_CONTENT_FORMAT", "text") or "text").lower()
+    if fmt not in {"text", "markdown", "html"}:
+        fmt = "text"
+
+    # Remove scripts/styles regardless of format
+    for bad in soup(["script", "style"]):
+        bad.decompose()
+
+    # 1) Preferred structure: details within events-detail-main
+    container = soup.select_one("div.events-detail-main") or soup.select_one(
+        "div.event-details-main"
+    )
+    fragment = None
+    if container:
+        header = container.select_one(".details")
+        # The actual body is typically within the next significant div
+        if header:
+            # Look for a specific content wrapper after the header
+            specific = (
+                header.find_next("div", class_="tex2jax_process")
+                or header.find_next("div", class_="field__item")
+                or header.find_next("div", class_="field--name-field-ps-body")
+                or header.find_next("div")
+            )
+            fragment = specific
+        else:
+            # Fallback to container itself
+            fragment = container
+
+    # 2) Generic fallbacks
+    if fragment is None:
+        fragment = (
+            soup.find("div", class_="event-description")
+            or soup.find("div", class_="event-body")
+            or soup.find("div", class_="field--name-body")
+            or soup.find("div", id="content-body")
+            or soup.find("article")
+        )
+
+    if fragment is None:
+        if debug:
+            print(f"[enrich] content-missing url={url}")
+        return ""
+
+    # Serializer
+    def _to_text(el) -> str:
+        # keep paragraph separation, then collapse excessive blank lines
+        raw = el.get_text(separator="\n\n", strip=True)
+        # Normalize newlines and spaces
+        lines = [" ".join(line.split()) for line in raw.splitlines()]
+        # Collapse consecutive blank lines to single
+        out_lines = []
+        prev_blank = False
+        for ln in lines:
+            is_blank = (ln == "")
+            if is_blank and prev_blank:
+                continue
+            out_lines.append(ln)
+            prev_blank = is_blank
+        return "\n".join(out_lines).strip()
+
+    def _to_markdown(el) -> str:
+        html = str(el)
+        if _md is not None:
+            try:
+                md = _md(
+                    html,
+                    heading_style="ATX",
+                    strip=[],
+                    convert=["br", "p", "h1", "h2", "h3", "h4", "h5", "h6", "a", "em", "strong", "ul", "ol", "li"],
+                )
+            except Exception:
+                md = _to_text(el)
+        else:
+            md = _to_text(el)
+        # Tidy: collapse >2 blank lines
+        parts = [p.strip() for p in md.splitlines()]
+        cleaned = []
+        blank = 0
+        for p in parts:
+            if p == "":
+                blank += 1
+                if blank > 1:
+                    continue
+            else:
+                blank = 0
+            cleaned.append(p)
+        return "\n".join(cleaned).strip()
+
+    def _to_html(el) -> str:
+        # Return inner HTML of the fragment
+        # Avoid returning the wrapper tag; focus on its contents
+        try:
+            return "".join(str(c) for c in el.contents).strip()
+        except Exception:
+            return str(el)
+
+    if fmt == "html":
+        body = _to_html(fragment)
+    elif fmt == "markdown":
+        body = _to_markdown(fragment)
+    else:
+        body = _to_text(fragment)
+
+    if debug:
+        print(f"[enrich] content-found url={url} fmt={fmt} len={len(body)}")
+    return body
 
 
 def enrich_titles(events: List[Dict], enable: bool, session_cache: Optional[Dict[str, str]] = None, overwrite: bool = False) -> TitleEnrichmentStats:
@@ -192,3 +347,73 @@ def fill_title_fallback(events: List[Dict], overwrite: bool = False) -> int:
             )
             count += 1
     return count
+
+
+def enrichment_content_enabled(cli_flag: bool) -> bool:
+    if cli_flag:
+        return True
+    return os.getenv("ENRICH_CONTENT", "0") in {"1", "true", "yes", "on"}
+
+
+def enrichment_content_overwrite_enabled(cli_flag: bool) -> bool:
+    if cli_flag:
+        return True
+    return os.getenv("ENRICH_CONTENT_OVERWRITE", "0") in {"1", "true", "yes", "on"}
+
+
+def enrich_content(
+    events: List[Dict],
+    enable: bool,
+    session_cache: Optional[Dict[str, str]] = None,
+    overwrite: bool = False,
+) -> ContentEnrichmentStats:
+    """Optionally replace event 'content' with scraped page content.
+
+    By default, does not overwrite non-empty content unless `overwrite=True`.
+    """
+    stats = ContentEnrichmentStats()
+    if not enable:
+        return stats
+    cache = session_cache if session_cache is not None else {}
+    debug = os.getenv("ENRICH_DEBUG") in {"1", "true", "yes", "on"}
+    for idx, ev in enumerate(events):
+        url = ev.get("urlRef") or ""
+        if not url:
+            stats.skipped_missing_url += 1
+            if debug:
+                print(f"[enrich] content skip(no-url) event_index={idx}")
+            continue
+        stats.attempted += 1
+        if url in cache:
+            body = cache[url]
+            if debug:
+                print(f"[enrich] content cache-hit url={url} body_len={len(body)}")
+        else:
+            try:
+                body = fetch_content_body(url)
+            except Exception as e:
+                stats.errors += 1
+                body = ""
+                cache[url] = body
+                if debug:
+                    print(f"[enrich] content error fetching url={url} err={e}")
+                continue
+            cache[url] = body
+            if debug:
+                print(f"[enrich] content fetched url={url} body_len={len(body)}")
+        if not body:
+            if debug:
+                print(f"[enrich] content skip(no-body) url={url}")
+            continue
+        existing = ev.get("content")
+        should_overwrite = overwrite or existing is None or str(existing).strip() == ""
+        if should_overwrite:
+            ev["content"] = body
+            stats.updated += 1
+            if debug:
+                action = "overwrote" if (existing and overwrite) else "updated"
+                print(f"[enrich] content {action} url={url} new_len={len(body)}")
+        else:
+            if debug:
+                print(f"[enrich] content skip(has-content) url={url} overwrite={overwrite}")
+    return stats
