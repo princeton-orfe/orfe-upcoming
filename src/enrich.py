@@ -158,6 +158,16 @@ def fill_title_fallback(events: List[Dict], overwrite: bool = False) -> int:
             return True
         return s.lower() == "tbd"
 
+    # Optional prefix for titles derived from speaker. Supports basic placeholders
+    # like {series} sourced from the event dict. Missing keys render as empty string.
+    class _SafeDict(dict):
+        def __missing__(self, key):  # noqa: D401
+            return ""
+
+    MAX_PREFIX_LEN = 128  # increased from 64 to allow richer templates
+    raw_prefix_tmpl = os.getenv("FALLBACK_PREPEND_TEXT", "")
+    raw_prefix_tmpl = raw_prefix_tmpl if isinstance(raw_prefix_tmpl, str) else ""
+
     count = 0
     for ev in events:
         speaker = ev.get("speaker")
@@ -165,6 +175,20 @@ def fill_title_fallback(events: List[Dict], overwrite: bool = False) -> int:
             continue
         existing = ev.get("title")
         if overwrite or _is_missing(existing):
-            ev["title"] = speaker
+            # Render prefix template with event fields (e.g., {series}) and
+            # collapse whitespace so blanks (like empty series) don't leave doubles.
+            prefix_rendered = ""
+            if raw_prefix_tmpl:
+                try:
+                    prefix_rendered = raw_prefix_tmpl.format_map(_SafeDict(ev))
+                except Exception:
+                    # On formatting error, fall back to raw literal
+                    prefix_rendered = raw_prefix_tmpl
+                prefix_rendered = " ".join(prefix_rendered.split())
+            use_prefix = bool(prefix_rendered) and len(prefix_rendered) < MAX_PREFIX_LEN
+            speaker_str = str(speaker)
+            ev["title"] = (
+                f"{prefix_rendered} {speaker_str}" if use_prefix else speaker_str
+            )
             count += 1
     return count
