@@ -6,7 +6,7 @@ on:
       enrich_titles:
         description: 'Fetch event page subtitle into title field'
         required: false
-        default: 'false'
+        default: 'true'
 
 permissions:
   contents: write

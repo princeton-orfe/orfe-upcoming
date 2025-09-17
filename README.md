@@ -27,6 +27,7 @@ Automated pipeline that fetches a department ICS feed, applies a configurable tr
 * Title enrichment (optional) scraping each event detail page's `<div class="event-subtitle">` into `title` when enabled.
 * Overwrite mode (env `ENRICH_OVERWRITE=1`) to replace existing titles instead of only filling empty ones.
 * Enrichment debug logging via `ENRICH_DEBUG=1` showing fetch/skip/overwrite decisions.
+* Title fallback (when enrichment is enabled): after scraping, any event with a missing/blank/"TBD" title will be filled from its `speaker` field so no event is left without a meaningful title (if a speaker exists).
 
 ## Example Workflow (End-to-End)
 
@@ -79,6 +80,32 @@ ENRICH_TITLES=1 ENRICH_OVERWRITE=1 python -m src.main --ics-url "$ICS_URL" --lim
 Verbose enrichment debugging:
 ```bash
 ENRICH_TITLES=1 ENRICH_DEBUG=1 python -m src.main --ics-url "$ICS_URL" --limit 1 --print-only
+```
+
+### Title Fallback Details
+
+When `ENRICH_TITLES` (or `--enrich-titles`) is enabled, the pipeline first tries to scrape
+each event detail page for a subtitle and store it in `title`. After scraping, a
+post-processing step ensures there are no blank titles left:
+
+- Titles that are empty/whitespace or equal to "TBD" (case-insensitive) are considered missing.
+- Missing titles are filled from the event's `speaker` field if it exists.
+- This fallback does not overwrite meaningful non-empty titles unless you explicitly pass `--enrich-overwrite` or set `ENRICH_OVERWRITE=1` (which affects scraping, not the fallback default).
+
+This guarantees that, when enrichment is turned on, events won’t be published with blank or "TBD" titles if a speaker is available.
+
+### Local Files and file:// URLs
+
+The CLI supports fetching from:
+
+- http(s) URLs
+- `file://` URLs
+- bare local paths (absolute or relative)
+
+Example:
+
+```bash
+python -m src.main --ics-url "$PWD/examples/sample_input.example.ics" --print-only
 ```
 
 ### Examples

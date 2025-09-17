@@ -141,17 +141,30 @@ def enrichment_overwrite_enabled(cli_flag: bool) -> bool:
 
 
 def fill_title_fallback(events: List[Dict], overwrite: bool = False) -> int:
-    """Fill empty title from speaker field as a safety fallback.
+    """Fill missing/TBD titles from the speaker field.
 
-    Returns number of titles filled. If overwrite=True, replaces non-empty titles.
+    Behavior:
+    - Treats title values that are empty/whitespace or case-insensitive 'TBD' as missing.
+    - When `overwrite` is False (default), only fills when missing as defined above.
+    - When `overwrite` is True, replaces any existing title with the speaker value.
+
+    Returns the number of events whose title was set.
     """
+    def _is_missing(title_val: object | None) -> bool:
+        if title_val is None:
+            return True
+        s = str(title_val).strip()
+        if not s:
+            return True
+        return s.lower() == "tbd"
+
     count = 0
     for ev in events:
         speaker = ev.get("speaker")
         if not speaker:
             continue
         existing = ev.get("title")
-        if overwrite or not existing or str(existing).strip() == "":
+        if overwrite or _is_missing(existing):
             ev["title"] = speaker
             count += 1
     return count

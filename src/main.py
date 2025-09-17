@@ -12,6 +12,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 import requests
 from ics import Calendar
 from .transform import transform_calendar, TransformConfig, load_config
@@ -28,7 +29,22 @@ OUTPUT_FILE_ENV = os.getenv("OUTPUT_FILE", "events.json")
 
 
 def fetch_ics(url: str) -> str:
-    """Download raw ICS text from the given URL."""
+    """Retrieve raw ICS text from URL or local file.
+
+    Supports:
+    - http(s) URLs via requests
+    - file:// URLs by reading from the filesystem
+    - bare local paths (absolute or relative)
+    """
+    # file:// scheme
+    if url.startswith("file://"):
+        parsed = urlparse(url)
+        path = parsed.path
+        return Path(path).read_text(encoding="utf-8")
+    # bare local path
+    if "://" not in url and Path(url).exists():
+        return Path(url).read_text(encoding="utf-8")
+    # http(s) fallback
     response = requests.get(url, timeout=30)
     response.raise_for_status()
     return response.text
@@ -128,11 +144,11 @@ def main(argv: list[str] | None = None) -> int:
             f"Enriched titles: attempted={stats.attempted} updated={stats.updated} "
             f"errors={stats.errors} overwrite={'true' if overwrite else 'false'}"
         )
-        # Fallback: if no titles were populated at all, derive from speaker
-        if stats.updated == 0:
-            filled = fill_title_fallback(data, overwrite=False)
-            if filled:
-                print(f"Fallback populated {filled} titles from speaker field")
+        # Post-process fallback: ensure no blank or 'TBD' titles remain.
+        # Fill from speaker for any events still missing a meaningful title.
+        filled = fill_title_fallback(data, overwrite=False)
+        if filled:
+            print(f"Fallback populated {filled} titles from speaker field")
     if ns.limit is not None:
         data = data[: ns.limit]
     if ns.print_only:
