@@ -17,6 +17,7 @@ jobs:
     env:
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
+      FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       ENRICH_TITLES: ${{ github.event.inputs.enrich_titles }}
     steps:
       - name: Checkout

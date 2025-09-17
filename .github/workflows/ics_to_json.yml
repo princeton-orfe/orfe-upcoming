@@ -24,6 +24,7 @@ jobs:
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
+      FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       MANUAL_ENRICH: ${{ github.event.inputs.enrich_titles }}
     steps:
