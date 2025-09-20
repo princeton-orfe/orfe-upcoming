@@ -52,6 +52,33 @@ fetch('https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/
 	.then(events => console.log(events));
 ```
 
+## Release Assets
+
+The pipeline publishes JSON assets to stable URLs for both production and development environments:
+
+### Production Release (`latest`)
+- **URL**: `https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json`
+- **Triggers**: 
+  - Scheduled runs (hourly cron)
+  - Manual workflow runs (`workflow_dispatch`)
+  - Pushes to `main` branch
+- **Purpose**: Stable production feed for downstream systems
+- **Update Frequency**: Hourly + on-demand
+
+### Development Release (`dev`)
+- **URL**: `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
+- **Triggers**: Pushes to `dev-asset` branch
+- **Purpose**: Testing environment for JSON modifications and changes
+- **Update Frequency**: On every push to `dev-asset` branch
+
+### Usage Recommendations
+
+- **Production systems**: Always consume from the `latest` release URL
+- **Development/Testing**: Use the `dev` release URL to test changes before they affect production
+- **CI/CD pipelines**: Point to `latest` for stable deployments, `dev` for staging/test environments
+
+Both URLs are stable and will always serve the most recent JSON for their respective environments. The development release allows you to safely test modifications without impacting production consumers.
+
 ### Local Generation / Iteration
 ```bash
 python -m src.main --ics-url "https://orfe.princeton.edu/feeds/events/upcoming.ics" \
