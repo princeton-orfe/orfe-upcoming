@@ -31,6 +31,8 @@ jobs:
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       ENRICH_CONTENT: ${{ vars.ENRICH_CONTENT }}
       ENRICH_CONTENT_OVERWRITE: ${{ vars.ENRICH_CONTENT_OVERWRITE }}
+      ENRICH_RAW_DETAILS: ${{ vars.ENRICH_RAW_DETAILS }}
+      ENRICH_RAW_DETAILS_OVERWRITE: ${{ vars.ENRICH_RAW_DETAILS_OVERWRITE }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       MANUAL_ENRICH: ${{ github.event.inputs.enrich_titles }}
     steps:
@@ -121,7 +123,20 @@ jobs:
           else
             echo "Enrichment: disabled"
           fi
-          ENRICH_DEBUG=1 python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG}
+          RAW_FLAGS=""
+          if [ "${ENRICH_RAW_DETAILS}" = "true" ] || [ "${ENRICH_RAW_DETAILS}" = "1" ]; then
+            RAW_FLAGS+=" --enrich-raw-details"
+          fi
+          if [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "1" ]; then
+            RAW_FLAGS+=" --enrich-raw-details-overwrite"
+          fi
+          ENRICH_DEBUG=1 python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG} ${RAW_FLAGS}
+      - name: Validate JSON against schema
+        if: steps.check_change.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          : "${OUTPUT_FILE:=events.json}"
+          python tools/validate_json.py --schema schema/events.schema.json --data "${OUTPUT_FILE}"
       - name: Publish release asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -24,6 +24,9 @@ from .enrich import (
     enrich_content,
     enrichment_content_enabled,
     enrichment_content_overwrite_enabled,
+    enrich_raw_details,
+    enrichment_raw_details_enabled,
+    enrichment_raw_details_overwrite_enabled,
 )
 
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
@@ -136,6 +139,16 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="When enriching content, overwrite existing non-empty content instead of only filling blanks",
     )
+    p.add_argument(
+        "--enrich-raw-details",
+        action="store_true",
+        help="Fetch each event page and populate 'rawEventDetails' with inner HTML of .events-detail-main",
+    )
+    p.add_argument(
+        "--enrich-raw-details-overwrite",
+        action="store_true",
+        help="When enriching raw details, overwrite existing non-empty values instead of only filling blanks",
+    )
     return p.parse_args(argv)
 
 
@@ -171,6 +184,15 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"Enriched content: attempted={cstats.attempted} updated={cstats.updated} "
             f"errors={cstats.errors} overwrite={'true' if content_overwrite else 'false'}"
+        )
+    # Optional raw details enrichment (independent)
+    do_raw_enrich = enrichment_raw_details_enabled(ns.enrich_raw_details)
+    raw_overwrite = enrichment_raw_details_overwrite_enabled(ns.enrich_raw_details_overwrite)
+    if do_raw_enrich:
+        rstats = enrich_raw_details(data, True, overwrite=raw_overwrite)
+        print(
+            f"Enriched raw details: attempted={rstats.attempted} updated={rstats.updated} "
+            f"errors={rstats.errors} overwrite={'true' if raw_overwrite else 'false'}"
         )
     if ns.limit is not None:
         data = data[: ns.limit]

@@ -26,6 +26,7 @@ Automated pipeline that fetches a department ICS feed, applies a configurable tr
 * Unit tests: fetch, transform logic, sample round‑trip, config behaviors.
 * Title enrichment (optional) scraping each event detail page's `<div class="event-subtitle">` into `title` when enabled.
 * Content enrichment (scaffolding) to populate `content` from the event page body (disabled by default; ICS DESCRIPTION remains the fallback unless you enable it).
+* Raw details enrichment to capture the inner HTML of `.events-detail-main` into `rawEventDetails` (disabled by default).
 * Overwrite mode (env `ENRICH_OVERWRITE=1`) to replace existing titles instead of only filling empty ones.
 * Enrichment debug logging via `ENRICH_DEBUG=1` showing fetch/skip/overwrite decisions.
 * Title fallback (when enrichment is enabled): after scraping, any event with a missing/blank/"TBD" title will be filled from its `speaker` field so no event is left without a meaningful title (if a speaker exists).
@@ -132,6 +133,11 @@ ENRICH_CONTENT=1 ENRICH_CONTENT_FORMAT=markdown python -m src.main --ics-url "$I
 ENRICH_CONTENT=1 ENRICH_CONTENT_FORMAT=html python -m src.main --ics-url "$ICS_URL" --limit 1 --print-only
 ```
 
+Raw details enrichment (inner HTML from `.events-detail-main`):
+```bash
+python -m src.main --ics-url "$ICS_URL" --enrich-raw-details --print-only --limit 1
+```
+
 Extraction details:
 - The scraper prioritizes a container like `<div class="events-detail-main">` (or `event-details-main`) that includes a header with class `.details` and then grabs the following content block (e.g., `.tex2jax_process` / `.field__item`).
 - If that structure isn't found, it falls back to common containers like `.event-description`, `.event-body`, `.field--name-body`, `#content-body`, or `<article>`.
@@ -219,6 +225,8 @@ pytest -q
 python -m src.main --ics-url "https://example.com/calendar.ics"
 ```
 
+See also: [Contributing](CONTRIBUTING.md) for enriched local validation and CI details.
+
 ## Tests
 Tests cover:
 - ICS retrieval (mocked HTTP)
@@ -230,6 +238,48 @@ Tests cover:
 `manipulate_data(calendar, variable)` remains a hook for future bespoke filtering / enrichment beyond the generic transform.
 
 Iterate locally with `--print-only` before committing.
+
+## Schema
+
+The output produced by this project is a JSON array of event objects with a stable shape. A formal JSON Schema is included at:
+
+- `schema/events.schema.json`
+
+Key fields per event:
+- `guid` (string): unique ID from ICS UID
+- `startTime`, `endTime` (string): formatted as `YYYY-MM-DDTHH:mm:ss` in the target timezone
+- `urlRef` (string URI)
+- `location` (object): `{ name, id, detail }`
+- `series` (string): comma-joined categories
+- `speaker` (string): ICS SUMMARY with commas/semicolons escaped
+- `content` (string): ICS DESCRIPTION or enriched page body
+- `title` (string): subtitle when enriched, or speaker fallback when enabled
+- `cancelled`, `bannerImage`, `itemType` (string): placeholders (`itemType` currently `"advertisement"`)
+- `rawEventDetails` (string, optional): inner HTML fragment from the event page’s `.events-detail-main` container.
+
+Validation: The included schema targets JSON Schema draft-07 for broad tool compatibility. You can validate a produced `events.json` against it using your favorite validator.
+
+### Local validation and enriched generation
+
+One-liners:
+- Generate and validate from your ICS_URL
+	```bash
+	make install
+	ICS_URL="https://example.com/calendar.ics" make gen-enriched validate
+	```
+- Validate a previously generated file
+	```bash
+	make validate
+	```
+- Use the example ICS and validate (with enrichment and fallback applied)
+	```bash
+	make example-validate-enriched
+	```
+
+Alternatively invoke the validator directly:
+```bash
+python tools/validate_json.py --schema schema/events.schema.json --data events.json
+```
 
 ## Configuration reference (env vars and inputs)
 

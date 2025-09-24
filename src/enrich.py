@@ -38,6 +38,14 @@ class ContentEnrichmentStats:
     errors: int = 0
 
 
+@dataclass
+class RawDetailsEnrichmentStats:
+    attempted: int = 0
+    updated: int = 0
+    skipped_missing_url: int = 0
+    errors: int = 0
+
+
 def fetch_subtitle(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     """Fetch a page and return normalized subtitle text.
 
@@ -221,6 +229,41 @@ def fetch_content_body(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     return body
 
 
+def fetch_raw_details_html(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
+    """Fetch a page and return inner HTML of <div class="events-detail-main">.
+
+    Falls back to <div class="event-details-main"> if the primary class is not found.
+    Returns an empty string if neither is present or on error.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "x-wdsoit-bot-bypass": os.getenv("BOT_BYPASS_HEADER_VALUE", "1"),
+    }
+    debug = os.getenv("ENRICH_DEBUG") in {"1", "true", "yes", "on"}
+    try:
+        resp = requests.get(url, timeout=timeout, headers=headers)
+        resp.raise_for_status()
+    except Exception as e:
+        if debug:
+            print(f"[enrich] raw-details request-error url={url} err={e}")
+        return ""
+    soup = BeautifulSoup(resp.text, "html.parser")
+    container = soup.select_one("div.events-detail-main") or soup.select_one("div.event-details-main")
+    if not container:
+        if debug:
+            print(f"[enrich] raw-details missing container url={url}")
+        return ""
+    try:
+        html = "".join(str(c) for c in container.contents).strip()
+    except Exception:
+        html = str(container)
+    if debug:
+        print(f"[enrich] raw-details found url={url} len={len(html)}")
+    return html
+
+
 def enrich_titles(events: List[Dict], enable: bool, session_cache: Optional[Dict[str, str]] = None, overwrite: bool = False) -> TitleEnrichmentStats:
     """Mutate events list in-place adding subtitle to 'title' when available.
 
@@ -361,6 +404,18 @@ def enrichment_content_overwrite_enabled(cli_flag: bool) -> bool:
     return os.getenv("ENRICH_CONTENT_OVERWRITE", "0") in {"1", "true", "yes", "on"}
 
 
+def enrichment_raw_details_enabled(cli_flag: bool) -> bool:
+    if cli_flag:
+        return True
+    return os.getenv("ENRICH_RAW_DETAILS", "0") in {"1", "true", "yes", "on"}
+
+
+def enrichment_raw_details_overwrite_enabled(cli_flag: bool) -> bool:
+    if cli_flag:
+        return True
+    return os.getenv("ENRICH_RAW_DETAILS_OVERWRITE", "0") in {"1", "true", "yes", "on"}
+
+
 def enrich_content(
     events: List[Dict],
     enable: bool,
@@ -416,4 +471,62 @@ def enrich_content(
         else:
             if debug:
                 print(f"[enrich] content skip(has-content) url={url} overwrite={overwrite}")
+    return stats
+
+
+def enrich_raw_details(
+    events: List[Dict],
+    enable: bool,
+    session_cache: Optional[Dict[str, str]] = None,
+    overwrite: bool = False,
+) -> RawDetailsEnrichmentStats:
+    """Optionally add 'rawEventDetails' containing inner HTML of events-detail-main.
+
+    By default, does not overwrite non-empty values unless `overwrite=True`.
+    """
+    stats = RawDetailsEnrichmentStats()
+    if not enable:
+        return stats
+    cache = session_cache if session_cache is not None else {}
+    debug = os.getenv("ENRICH_DEBUG") in {"1", "true", "yes", "on"}
+    for idx, ev in enumerate(events):
+        url = ev.get("urlRef") or ""
+        if not url:
+            stats.skipped_missing_url += 1
+            if debug:
+                print(f"[enrich] raw-details skip(no-url) event_index={idx}")
+            continue
+        stats.attempted += 1
+        if url in cache:
+            html = cache[url]
+            if debug:
+                print(f"[enrich] raw-details cache-hit url={url} len={len(html)}")
+        else:
+            try:
+                html = fetch_raw_details_html(url)
+            except Exception as e:
+                stats.errors += 1
+                html = ""
+                cache[url] = html
+                if debug:
+                    print(f"[enrich] raw-details error fetching url={url} err={e}")
+                continue
+            cache[url] = html
+            if debug:
+                print(f"[enrich] raw-details fetched url={url} len={len(html)}")
+        if not html:
+            if debug:
+                print(f"[enrich] raw-details skip(no-html) url={url}")
+            continue
+        existing = ev.get("rawEventDetails")
+        should_overwrite = overwrite or existing is None or str(existing).strip() == ""
+        if should_overwrite:
+            ev["rawEventDetails"] = html
+            stats.updated += 1
+            if debug:
+                action = "overwrote" if (existing and overwrite) else "updated"
+                print(f"[enrich] raw-details {action} url={url} new_len={len(html)}")
+        else:
+            if debug:
+                print(f"[enrich] raw-details skip(has-value) url={url} overwrite={overwrite}")
     return stats
