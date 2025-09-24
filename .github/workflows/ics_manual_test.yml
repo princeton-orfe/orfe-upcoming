@@ -7,6 +7,10 @@ on:
         description: 'Fetch event page subtitle into title field'
         required: false
         default: 'true'
+      enrich_raw_details:
+        description: 'Capture rawEventDetails (HTML) from .events-detail-main'
+        required: false
+        default: 'true'
 
 permissions:
   contents: write
@@ -19,6 +23,7 @@ jobs:
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       ENRICH_TITLES: ${{ github.event.inputs.enrich_titles }}
+      ENRICH_RAW_DETAILS_INPUT: ${{ github.event.inputs.enrich_raw_details }}
       ENRICH_RAW_DETAILS: ${{ vars.ENRICH_RAW_DETAILS }}
       ENRICH_RAW_DETAILS_OVERWRITE: ${{ vars.ENRICH_RAW_DETAILS_OVERWRITE }}
     steps:
@@ -42,7 +47,8 @@ jobs:
           if [ -z "${ICS_URL}" ]; then echo "ICS_URL not set" >&2; exit 1; fi
           ENRICH_FLAG=""; if [ "${ENRICH_TITLES}" = "true" ]; then ENRICH_FLAG="--enrich-titles"; fi
           RAW_FLAGS=""
-          if [ "${ENRICH_RAW_DETAILS}" = "true" ] || [ "${ENRICH_RAW_DETAILS}" = "1" ]; then
+          # Input takes precedence; fall back to repo variable if input is empty
+          if [ "${ENRICH_RAW_DETAILS_INPUT}" = "true" ] || { [ -z "${ENRICH_RAW_DETAILS_INPUT}" ] && { [ "${ENRICH_RAW_DETAILS}" = "true" ] || [ "${ENRICH_RAW_DETAILS}" = "1" ]; }; }; then
             RAW_FLAGS+=" --enrich-raw-details"
           fi
           if [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "1" ]; then
