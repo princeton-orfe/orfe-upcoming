@@ -148,15 +148,15 @@ jobs:
           if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" = "dev-asset" ]; then
             TAG=dev
             TITLE="Development events JSON"
-            BODY="Development build of events feed from dev-asset branch.\nICS_SHA256:${{ steps.check_change.outputs.hash }}"
+            BODY="Development build of events feed from dev-asset branch. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
           elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" = "main" ]; then
             TAG=latest
             TITLE="Latest events JSON"
-            BODY="Automated update of events feed from main branch.\nICS_SHA256:${{ steps.check_change.outputs.hash }}"
+            BODY="Automated update of events feed from main branch. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
           else
             TAG=latest
             TITLE="Latest events JSON"
-            BODY="Automated update of events feed.\nICS_SHA256:${{ steps.check_change.outputs.hash }}"
+            BODY="Automated update of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
           fi
           # If release exists, delete it (so it's guaranteed to be 'latest' or 'dev')
           if gh release view "$TAG" >/dev/null 2>&1; then
