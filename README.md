@@ -4,7 +4,7 @@ Automated pipeline that fetches a department ICS feed, applies configurable tran
 
 ## Features
 
-* Hourly + manual workflow (cron + `workflow_dispatch`)
+* Hourly + manual workflow (cron + `workflow_dispatch` + [orfe-upcoming-dispatcher](https://github.com/organizations/princeton-orfe/settings/apps/orfe-upcoming-dispatcher))
 * ICS fetching with SHA256 change detection
 * Configurable field mapping and transformation
 * Title enrichment from event pages
@@ -27,7 +27,7 @@ fetch('https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/
 ### Release Assets
 
 **Production** (`latest`): `https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json`
-- Triggers: Scheduled (hourly), manual, pushes to `main`
+- Triggers: Scheduled (hourly via cron + [orfe-upcoming-dispatcher](https://github.com/organizations/princeton-orfe/settings/apps/orfe-upcoming-dispatcher)), manual
 - Purpose: Stable production feed
 
 **Development** (`dev`): `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
