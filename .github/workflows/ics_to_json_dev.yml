@@ -1,0 +1,126 @@
+name: ICS to JSON (Development)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force regeneration even if ICS unchanged'
+        required: false
+        default: false
+        type: boolean
+      enrich_titles:
+        description: 'Fetch event page subtitle into title field (default true)'
+        required: false
+        default: true
+        type: boolean
+      enrich_raw_extracts:
+        description: 'Extract abstract and bio from raw event details (default true)'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  build-and-publish-dev:
+    # Ensure this only runs on the dev-asset branch
+    if: github.ref == 'refs/heads/dev-asset'
+    runs-on: ubuntu-latest
+    env:
+      ICS_URL: ${{ vars.ICS_URL }}
+      REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
+      OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
+      FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
+      FORCE_REBUILD: ${{ github.event.inputs.force }}
+      # Set flags based on inputs declaratively
+      ENRICH_FLAG: ${{ github.event.inputs.enrich_titles == true && '--enrich-titles' || '' }}
+      EXTRACT_FLAGS: ${{ github.event.inputs.enrich_raw_extracts == true && '--enrich-raw-extracts' || '' }}
+      # The following are still controlled by repo variables as in the original
+      RAW_FLAGS: ${{ (vars.ENRICH_RAW_DETAILS == 'true' || vars.ENRICH_RAW_DETAILS == '1') && '--enrich-raw-details' || '' }} ${{ (vars.ENRICH_RAW_DETAILS_OVERWRITE == 'true' || vars.ENRICH_RAW_DETAILS_OVERWRITE == '1') && '--enrich-raw-details-overwrite' || '' }}
+      
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Load failure streak
+        id: load_streak
+        run: |
+          count=$(cat .ci/failure-streak 2>/dev/null || echo 0)
+          echo "current=$count" >> "$GITHUB_OUTPUT"
+
+      - name: Check ICS change
+        id: check_change
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ICS_URL}" ]; then echo "ICS_URL not set" >&2; exit 1; fi
+          
+          curl -fsSL "$ICS_URL" -o current.ics
+          new_hash=$(sha256sum current.ics | cut -d ' ' -f1)
+          echo "New ICS SHA256: $new_hash"
+          
+          # For dev branch, previous hash is always from the 'dev' release
+          prev_hash=$(gh release view dev --json body -q '.body' 2>/dev/null | grep -Eo 'ICS_SHA256:[0-9a-f]+' | cut -d: -f2 || echo "")
+          echo "Previous ICS SHA256: ${prev_hash:-<none>}"
+          
+          if [ "${FORCE_REBUILD:-false}" = "true" ]; then
+            echo "Force rebuild requested." >> "$GITHUB_STEP_SUMMARY"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          elif [ "$new_hash" = "$prev_hash" ] && [ -n "$prev_hash" ]; then
+            echo "ICS unchanged; skipping generation." >> "$GITHUB_STEP_SUMMARY"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "hash=$new_hash" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python, install, and test
+        if: steps.check_change.outputs.skip != 'true'
+        run: |
+          pip install -r requirements.txt
+          pytest -q
+
+      - name: Generate JSON (Dev)
+        if: steps.check_change.outputs.skip != 'true'
+        run: |
+          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE:-events.json}" ${ENRICH_FLAG} ${RAW_FLAGS} ${EXTRACT_FLAGS}
+
+      - name: Validate JSON against schema
+        if: steps.check_change.outputs.skip != 'true'
+        run: |
+          python tools/validate_json.py --schema schema/events.schema.json --data "${OUTPUT_FILE:-events.json}"
+
+      - name: Publish "dev" release
+        if: steps.check_change.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
+          TAG="dev"
+          TITLE="Development Events"
+          BODY="Development build of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
+
+          # Overwrite existing 'dev' release
+          gh release delete "$TAG" -y 2>/dev/null || true
+          gh release create "$TAG" "$OUTPUT_ASSET" --title "$TITLE" --notes "$BODY"
+          
+          echo "Dev asset URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/dev/${OUTPUT_ASSET}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JSON artifact (Dev)
+        if: steps.check_change.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: events-json-dev
+          path: ${{ env.OUTPUT_FILE || 'events.json' }}
+
+      - name: Handle success/failure streak
+        if: always()
+        uses: ./actions/update-failure-streak # Reusing the same local action
+        with:
+          job-status: ${{ job.status }}
+          streak-file: .ci/failure-streak
+          github-token: ${{ secrets.GITHUB_TOKEN }}
