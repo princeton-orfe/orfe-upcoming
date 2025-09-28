@@ -134,20 +134,26 @@ jobs:
             echo "Enrichment: disabled"
           fi
           RAW_FLAGS=""
-          if [ "${ENRICH_RAW_DETAILS}" = "true" ] || [ "${ENRICH_RAW_DETAILS}" = "1" ]; then
-            RAW_FLAGS+=" --enrich-raw-details"
-          fi
-          if [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "1" ]; then
-            RAW_FLAGS+=" --enrich-raw-details-overwrite"
+          # Handle raw details: only enable on dev-asset branch where feature exists
+          if [ "${GITHUB_REF_NAME}" = "dev-asset" ]; then
+            if [ "${ENRICH_RAW_DETAILS}" = "true" ] || [ "${ENRICH_RAW_DETAILS}" = "1" ]; then
+              RAW_FLAGS+=" --enrich-raw-details"
+            fi
+            if [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "1" ]; then
+              RAW_FLAGS+=" --enrich-raw-details-overwrite"
+            fi
           fi
           EXTRACT_FLAGS=""
-          # Handle raw extracts: env vars take precedence, then manual input defaults to true
-          EXTRACT_EFFECTIVE="${ENRICH_RAW_EXTRACTS:-true}"
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            case "${MANUAL_RAW_EXTRACTS}" in
-              ""|"true"|"True"|"TRUE") EXTRACT_EFFECTIVE="true" ;;
-              "false"|"False"|"FALSE") EXTRACT_EFFECTIVE="false" ;;
-            esac
+          # Handle raw extracts: only enable on dev-asset branch where feature exists
+          EXTRACT_EFFECTIVE="false"
+          if [ "${GITHUB_REF_NAME}" = "dev-asset" ]; then
+            EXTRACT_EFFECTIVE="${ENRICH_RAW_EXTRACTS:-true}"
+            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              case "${MANUAL_RAW_EXTRACTS}" in
+                ""|"true"|"True"|"TRUE") EXTRACT_EFFECTIVE="true" ;;
+                "false"|"False"|"FALSE") EXTRACT_EFFECTIVE="false" ;;
+              esac
+            fi
           fi
           if [ "${EXTRACT_EFFECTIVE}" = "true" ] || [ "${EXTRACT_EFFECTIVE}" = "1" ]; then
             EXTRACT_FLAGS+=" --enrich-raw-extracts"
