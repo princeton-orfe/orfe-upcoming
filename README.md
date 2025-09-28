@@ -23,7 +23,7 @@ Automated pipeline that fetches a department ICS feed, applies configurable tran
 - Purpose: Stable production feed
 
 **Development** (`dev`): `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
-- Triggers: Pushes to `dev-asset`
+- Triggers: Manual (workflow_dispatch on dev-asset branch)
 - Purpose: Testing environment
 
 ### Local Development
