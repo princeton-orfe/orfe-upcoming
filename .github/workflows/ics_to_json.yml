@@ -1,9 +1,10 @@
 name: ICS to JSON
+
 on:
   workflow_dispatch:
     inputs:
       force:
-        description: 'Force regeneration even if ICS unchanged'
+        description: 'Force regeneration even if ICS is unchanged'
         required: false
         default: false
         type: boolean
@@ -12,15 +13,6 @@ on:
         required: false
         default: true
         type: boolean
-      enrich_raw_extracts:
-        description: 'Extract abstract and bio from raw event details (default true)'
-        required: false
-        default: true
-        type: boolean
-  push:
-    branches:
-      - main
-      - dev-asset
   schedule:
     - cron: '0 * * * *'
 
@@ -29,221 +21,98 @@ permissions:
   issues: write
 
 jobs:
-  build-and-test:
+  build-and-publish:
+    # Ensure this only runs on the main branch
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
-      ENRICH_CONTENT: ${{ vars.ENRICH_CONTENT }}
-      ENRICH_CONTENT_OVERWRITE: ${{ vars.ENRICH_CONTENT_OVERWRITE }}
-      ENRICH_RAW_DETAILS: ${{ vars.ENRICH_RAW_DETAILS }}
-      ENRICH_RAW_DETAILS_OVERWRITE: ${{ vars.ENRICH_RAW_DETAILS_OVERWRITE }}
-      ENRICH_RAW_EXTRACTS: ${{ vars.ENRICH_RAW_EXTRACTS }}
-      ENRICH_RAW_EXTRACTS_OVERWRITE: ${{ vars.ENRICH_RAW_EXTRACTS_OVERWRITE }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
-      MANUAL_ENRICH: ${{ github.event.inputs.enrich_titles }}
-      MANUAL_RAW_EXTRACTS: ${{ github.event.inputs.enrich_raw_extracts }}
+      # Logic for enrichment flag: always on for schedule, respects input for dispatch
+      ENRICH_FLAG: ${{ (github.event_name == 'schedule' || github.event.inputs.enrich_titles == 'true') && '--enrich-titles' || '' }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
       - name: Load failure streak
         id: load_streak
         run: |
-          if [ -f .ci/failure-streak ]; then
-            count=$(cat .ci/failure-streak || echo 0)
-          else
-            count=0
-          fi
+          count=$(cat .ci/failure-streak 2>/dev/null || echo 0)
           echo "current=$count" >> "$GITHUB_OUTPUT"
+
       - name: Check ICS change
         id: check_change
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -z "${ICS_URL}" ]; then
-            echo "ICS_URL not set" >&2; exit 1; fi
-          echo "Fetching ICS for change detection: $ICS_URL"
+          if [ -z "${ICS_URL}" ]; then echo "ICS_URL not set" >&2; exit 1; fi
+          
           curl -fsSL "$ICS_URL" -o current.ics
           new_hash=$(sha256sum current.ics | cut -d ' ' -f1)
           echo "New ICS SHA256: $new_hash"
-          prev_hash=""
-          # Determine which release to check for previous hash
-          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" = "dev-asset" ]; then
-            RELEASE_TAG="dev"
-          else
-            RELEASE_TAG="latest"
-          fi
-          if gh release view "$RELEASE_TAG" --json body >/dev/null 2>&1; then
-            prev_hash=$(gh release view "$RELEASE_TAG" --json body -q '.body' | grep -Eo 'ICS_SHA256:[0-9a-f]+' | cut -d: -f2 || echo "")
-          fi
+          
+          # For main branch, previous hash is always from the 'latest' release
+          prev_hash=$(gh release view latest --json body -q '.body' 2>/dev/null | grep -Eo 'ICS_SHA256:[0-9a-f]+' | cut -d: -f2 || echo "")
           echo "Previous ICS SHA256: ${prev_hash:-<none>}"
+          
           if [ "${FORCE_REBUILD:-false}" = "true" ]; then
-            echo "Force rebuild requested via workflow_dispatch input." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Force rebuild requested." >> "$GITHUB_STEP_SUMMARY"
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "hash=$new_hash" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "$new_hash" = "$prev_hash" ] && [ -n "$prev_hash" ]; then
-            echo "ICS unchanged; skipping generation." | tee -a "$GITHUB_STEP_SUMMARY"
+          elif [ "$new_hash" = "$prev_hash" ] && [ -n "$prev_hash" ]; then
+            echo "ICS unchanged; skipping generation." >> "$GITHUB_STEP_SUMMARY"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
           echo "hash=$new_hash" >> "$GITHUB_OUTPUT"
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
+
+      - name: Set up Python, install, and test
         if: steps.check_change.outputs.skip != 'true'
-      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
-        if: steps.check_change.outputs.skip != 'true'
-      - name: Run tests
-        run: pytest -q
-        if: steps.check_change.outputs.skip != 'true'
+          pytest -q
+
       - name: Generate JSON
         if: steps.check_change.outputs.skip != 'true'
         run: |
-          set -euo pipefail
-          echo "ICS_URL=${ICS_URL}"
-          : "${OUTPUT_FILE:=events.json}"  # default if unset/empty
-          echo "OUTPUT_FILE=${OUTPUT_FILE}"
-          if [ -z "${ICS_URL}" ]; then
-            echo "ICS_URL is empty. Define repository variable 'ICS_URL'." >&2
-            exit 1
-          fi
-          # Decide enrichment: schedule always true; manual defaults true unless explicitly set false; push (dev) always true
-          ENRICH_EFFECTIVE="true"
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            case "${MANUAL_ENRICH}" in
-              ""|"true"|"True"|"TRUE") ENRICH_EFFECTIVE="true" ;;
-              "false"|"False"|"FALSE") ENRICH_EFFECTIVE="false" ;;
-            esac
-          fi
-          ENRICH_FLAG=""
-          if [ "${ENRICH_EFFECTIVE}" = "true" ]; then
-            ENRICH_FLAG="--enrich-titles"
-            echo "Enrichment: enabled"
-          else
-            echo "Enrichment: disabled"
-          fi
-          RAW_FLAGS=""
-          # Handle raw details: only enable on dev-asset branch where feature exists
-          if [ "${GITHUB_REF_NAME}" = "dev-asset" ]; then
-            if [ "${ENRICH_RAW_DETAILS}" = "true" ] || [ "${ENRICH_RAW_DETAILS}" = "1" ]; then
-              RAW_FLAGS+=" --enrich-raw-details"
-            fi
-            if [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "1" ]; then
-              RAW_FLAGS+=" --enrich-raw-details-overwrite"
-            fi
-          fi
-          EXTRACT_FLAGS=""
-          # Handle raw extracts: only enable on dev-asset branch where feature exists
-          EXTRACT_EFFECTIVE="false"
-          if [ "${GITHUB_REF_NAME}" = "dev-asset" ]; then
-            EXTRACT_EFFECTIVE="${ENRICH_RAW_EXTRACTS:-true}"
-            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-              case "${MANUAL_RAW_EXTRACTS}" in
-                ""|"true"|"True"|"TRUE") EXTRACT_EFFECTIVE="true" ;;
-                "false"|"False"|"FALSE") EXTRACT_EFFECTIVE="false" ;;
-              esac
-            fi
-          fi
-          if [ "${EXTRACT_EFFECTIVE}" = "true" ] || [ "${EXTRACT_EFFECTIVE}" = "1" ]; then
-            EXTRACT_FLAGS+=" --enrich-raw-extracts"
-          fi
-          if [ "${ENRICH_RAW_EXTRACTS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_EXTRACTS_OVERWRITE}" = "1" ]; then
-            EXTRACT_FLAGS+=" --enrich-raw-extracts-overwrite"
-          fi
-          ENRICH_DEBUG=1 python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG} ${RAW_FLAGS} ${EXTRACT_FLAGS}
+          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE:-events.json}" ${ENRICH_FLAG}
+
       - name: Validate JSON against schema
         if: steps.check_change.outputs.skip != 'true'
         run: |
-          set -euo pipefail
-          : "${OUTPUT_FILE:=events.json}"
-          python tools/validate_json.py --schema schema/events.schema.json --data "${OUTPUT_FILE}"
-      - name: Publish release asset
+          python tools/validate_json.py --schema schema/events.schema.json --data "${OUTPUT_FILE:-events.json}"
+
+      - name: Publish "latest" release
+        if: steps.check_change.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        if: steps.check_change.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          : "${OUTPUT_FILE:=events.json}"
-          # Determine release tag based on trigger
-          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" = "dev-asset" ]; then
-            TAG=dev
-            TITLE="Development Events"
-            BODY="Development build of events feed from dev-asset branch. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
-          elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" = "main" ]; then
-            TAG=latest
-            TITLE="Latest Events"
-            BODY="Automated update of events feed from main branch. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
-          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            TAG=latest
-            TITLE="Latest Events (Manual)"
-            BODY="Manual update of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
-          fi
-          # If release exists, delete it (so it's guaranteed to be 'latest' or 'dev')
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Deleting existing release $TAG to refresh timestamp";
-            gh release delete "$TAG" -y || true
-          fi
-          gh release create "$TAG" "$OUTPUT_FILE" \
-            --title "$TITLE" \
-            --notes "$BODY" \
-            --latest
-          if [ "$TAG" = "dev" ]; then
-            echo "Dev release asset URL (public): https://github.com/${GITHUB_REPOSITORY}/releases/dev/download/${OUTPUT_FILE}" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
+          TAG="latest"
+          TITLE="Latest Events ${{ github.event_name == 'workflow_dispatch' && '(Manual)' || '' }}"
+          BODY="Automated update of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
+
+          # Overwrite existing 'latest' release
+          gh release delete "$TAG" -y 2>/dev/null || true
+          gh release create "$TAG" "$OUTPUT_ASSET" --title "$TITLE" --notes "$BODY" --latest
+
       - name: Upload JSON artifact
+        if: steps.check_change.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: events-json${{ github.event_name == 'push' && github.ref_name == 'dev-asset' && '-dev' || '' }}
+          name: events-json
           path: ${{ env.OUTPUT_FILE || 'events.json' }}
-        if: steps.check_change.outputs.skip != 'true'
-      - name: Reset failure streak on success
-        if: success()
-        run: |
-          mkdir -p .ci
-          prior=${{ steps.load_streak.outputs.current }}
-          if [ "$prior" != "0" ]; then
-            echo 0 > .ci/failure-streak
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .ci/failure-streak
-            git commit -m "chore(ci): reset failure streak to 0 [skip ci]" || true
-            git push origin HEAD:${GITHUB_REF_NAME} || true
-          fi
-          echo "Failure streak reset (prior=$prior)." >> $GITHUB_STEP_SUMMARY
-      - name: Handle failure (increment streak, maybe open issue)
-        if: failure()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          mkdir -p .ci
-          prior=${{ steps.load_streak.outputs.current }}
-          new=$((prior + 1))
-          echo $new > .ci/failure-streak
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .ci/failure-streak
-          git commit -m "chore(ci): failure streak $new [skip ci]" || true
-          git push origin HEAD:${GITHUB_REF_NAME} || true
-          # Ensure label exists
-          gh label list --search ci-failure | grep -qi '^ci-failure' || gh label create ci-failure --color FF0000 --description "Automated CI failure alerts" || true
-          if [ "$new" -ge 3 ]; then
-            existing=$(gh issue list --state open --label ci-failure --search "ICS feed processing failures" --json number -q '.[0].number' || echo "")
-            if [ -z "$existing" ]; then
-              gh issue create --title "ICS feed processing failures (streak $new) on ${GITHUB_REF_NAME}" --label ci-failure --body "The ICS to JSON workflow has failed $new consecutive times on branch ${GITHUB_REF_NAME}. Please investigate logs." || true
-            else
-              gh issue comment "$existing" --body "Another failure on ${GITHUB_REF_NAME} (streak $new)." || true
-            fi
-          fi
-          echo "Failure streak incremented to $new" >> $GITHUB_STEP_SUMMARY
+
+      - name: Handle success/failure streak
+        if: always() # This step runs regardless of job status
+        uses: ./actions/update-failure-streak # Assumes you move the logic to a local action for cleanliness
+        with:
+          job-status: ${{ job.status }}
+          streak-file: .ci/failure-streak
+          github-token: ${{ secrets.GITHUB_TOKEN }}
