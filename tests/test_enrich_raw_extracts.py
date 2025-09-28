@@ -94,6 +94,18 @@ class TestExtractBioFromRawDetails:
         result = extract_bio_from_raw_details("   \n\t   ")
         assert result == ""
 
+    def test_bio_with_html_tags_around_marker(self):
+        html = """
+        <div class="events-detail-main">
+            <p>Some intro text</p>
+            <p><b>Bio</b>: This is the bio content with HTML tags around the marker.</p>
+            <p>More content here</p>
+        </div>
+        """
+        result = extract_bio_from_raw_details(html)
+        assert "This is the bio content with HTML tags around the marker" in result
+        assert "More content here" not in result
+
 
 class TestEnrichRawExtracts:
     def test_enrich_raw_extracts_basic(self):
@@ -354,6 +366,18 @@ class TestExtractAbstractEdgeCases:
         result = extract_abstract_from_raw_details(html)
         assert "Uppercase header abstract" in result
 
+    def test_abstract_with_html_tags_around_marker(self):
+        html = """
+        <div class="events-detail-main">
+            <p>Some intro text</p>
+            <p><strong>Abstract</strong>: This is the abstract content with HTML tags around the marker.</p>
+            <p>More content here</p>
+        </div>
+        """
+        result = extract_abstract_from_raw_details(html)
+        assert "This is the abstract content with HTML tags around the marker" in result
+        assert "More content here" not in result
+
 
 class TestExtractBioEdgeCases:
     def test_bio_with_multiple_headers(self):
@@ -394,6 +418,18 @@ class TestExtractBioEdgeCases:
         result = extract_bio_from_raw_details(html)
         assert "This is the actual bio" in result
         assert "with a colon, but not the marker" not in result
+
+    def test_bio_with_html_tags_around_marker(self):
+        html = """
+        <div class="events-detail-main">
+            <p>Some intro text</p>
+            <p><b>Bio</b>: This is the bio content with HTML tags around the marker.</p>
+            <p>More content here</p>
+        </div>
+        """
+        result = extract_bio_from_raw_details(html)
+        assert "This is the bio content with HTML tags around the marker" in result
+        assert "More content here" not in result
 
 
 class TestRaceConditionAndRobustness:

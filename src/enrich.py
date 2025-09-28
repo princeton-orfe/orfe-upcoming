@@ -287,11 +287,29 @@ def extract_abstract_from_raw_details(raw_html: str) -> str:
     # Find abstract marker - try different patterns
     abstract_marker = None
 
-    # Pattern 1: Look for "Abstract:" text
+    # Pattern 1: Look for "Abstract:" text (handles both "Abstract:" and "<strong>Abstract</strong>:")
+    # First try to find exact "Abstract:" in text nodes
     for element in soup.find_all(string=lambda text: text and "Abstract:" in text):
         if "Abstract:" in element.strip():
             abstract_marker = element.parent
             break
+
+    # If not found, look for "Abstract" followed by ":" (possibly separated by HTML tags)
+    if not abstract_marker:
+        for element in soup.find_all(string=lambda text: text and "Abstract" in text.strip()):
+            # Check if this element contains "Abstract" (case insensitive)
+            if "abstract" in element.strip().lower():
+                # Find the closest block-level parent that might contain the full "Abstract:" text
+                parent = element.parent
+                while parent and parent.name not in ['p', 'div', 'section', 'article']:
+                    parent = parent.parent
+                
+                if parent:
+                    # Get all text from the parent element
+                    parent_text = parent.get_text(strip=True)
+                    if "abstract:" in parent_text.lower():
+                        abstract_marker = parent
+                        break
 
     # Pattern 2: Look for header tags containing "Abstract"
     if not abstract_marker:
@@ -313,13 +331,16 @@ def extract_abstract_from_raw_details(raw_html: str) -> str:
     else:
         # For text markers like "Abstract:", extract from the same element
         text_content = abstract_marker.get_text(strip=True)
-        if "Abstract:" in text_content:
+        if "abstract:" in text_content.lower():
             # Extract text after "Abstract:"
-            after_marker = text_content.split("Abstract:", 1)[1].strip()
-            if after_marker:
-                content_parts.append(after_marker)
-        # Then continue with siblings if needed
-        current = abstract_marker.next_sibling
+            lower_text = text_content.lower()
+            abstract_pos = lower_text.find("abstract:")
+            if abstract_pos != -1:
+                after_marker = text_content[abstract_pos + 9:].strip()  # 9 = len("abstract:")
+                if after_marker:
+                    content_parts.append(after_marker)
+        # For colon markers, don't continue with siblings since content is in same element
+        current = None
 
     # Collect content until we hit another header
     while current:
@@ -352,11 +373,29 @@ def extract_bio_from_raw_details(raw_html: str) -> str:
     # Find bio marker - try different patterns
     bio_marker = None
 
-    # Pattern 1: Look for "Bio:" text
+    # Pattern 1: Look for "Bio:" text (handles both "Bio:" and "<b>Bio</b>:")
+    # First try to find exact "Bio:" in text nodes
     for element in soup.find_all(string=lambda text: text and "Bio:" in text):
         if "Bio:" in element.strip():
             bio_marker = element.parent
             break
+
+    # If not found, look for "Bio" followed by ":" (possibly separated by HTML tags)
+    if not bio_marker:
+        for element in soup.find_all(string=lambda text: text and "Bio" in text.strip()):
+            # Check if this element contains "Bio" (case insensitive)
+            if "bio" in element.strip().lower():
+                # Find the closest block-level parent that might contain the full "Bio:" text
+                parent = element.parent
+                while parent and parent.name not in ['p', 'div', 'section', 'article']:
+                    parent = parent.parent
+                
+                if parent:
+                    # Get all text from the parent element
+                    parent_text = parent.get_text(strip=True)
+                    if "bio:" in parent_text.lower():
+                        bio_marker = parent
+                        break
 
     # Pattern 2: Look for header tags containing "Bio"
     if not bio_marker:
@@ -378,13 +417,16 @@ def extract_bio_from_raw_details(raw_html: str) -> str:
     else:
         # For text markers like "Bio:", extract from the same element
         text_content = bio_marker.get_text(strip=True)
-        if "Bio:" in text_content:
+        if "bio:" in text_content.lower():
             # Extract text after "Bio:"
-            after_marker = text_content.split("Bio:", 1)[1].strip()
-            if after_marker:
-                content_parts.append(after_marker)
-        # Then continue with siblings if needed
-        current = bio_marker.next_sibling
+            lower_text = text_content.lower()
+            bio_pos = lower_text.find("bio:")
+            if bio_pos != -1:
+                after_marker = text_content[bio_pos + 4:].strip()  # 4 = len("bio:")
+                if after_marker:
+                    content_parts.append(after_marker)
+        # For colon markers, don't continue with siblings since content is in same element
+        current = None
 
     # Collect content until we hit another header
     while current:
