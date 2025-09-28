@@ -5,19 +5,23 @@ on:
       force:
         description: 'Force regeneration even if ICS unchanged'
         required: false
-        default: 'false'
+        default: false
+        type: boolean
       enrich_titles:
         description: 'Fetch event page subtitle into title field (default true)'
         required: false
-        default: 'true'
+        default: true
+        type: boolean
       enrich_raw_extracts:
         description: 'Extract abstract and bio from raw event details (default true)'
         required: false
-        default: 'true'
+        default: true
+        type: boolean
       replace_latest:
         description: 'Replace the Latest Events release (instead of creating manual-latest)'
         required: false
-        default: 'false'
+        default: false
+        type: boolean
   push:
     branches:
       - main
