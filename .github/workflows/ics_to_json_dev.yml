@@ -35,8 +35,8 @@ jobs:
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       # Set flags based on inputs declaratively
-      ENRICH_FLAG: ${{ github.event.inputs.enrich_titles == true && '--enrich-titles' || '' }}
-      EXTRACT_FLAGS: ${{ github.event.inputs.enrich_raw_extracts == true && '--enrich-raw-extracts' || '' }}
+      ENRICH_FLAG: ${{ github.event.inputs.enrich_titles == 'true' && '--enrich-titles' || '' }}
+      EXTRACT_FLAGS: ${{ github.event.inputs.enrich_raw_extracts == 'true' && '--enrich-raw-extracts' || '' }}
       # The following are still controlled by repo variables as in the original
       RAW_FLAGS: ${{ (vars.ENRICH_RAW_DETAILS == 'true' || vars.ENRICH_RAW_DETAILS == '1') && '--enrich-raw-details' || '' }} ${{ (vars.ENRICH_RAW_DETAILS_OVERWRITE == 'true' || vars.ENRICH_RAW_DETAILS_OVERWRITE == '1') && '--enrich-raw-details-overwrite' || '' }}
       
