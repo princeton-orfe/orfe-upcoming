@@ -27,6 +27,7 @@ Automated pipeline that fetches a department ICS feed, applies a configurable tr
 * Title enrichment (optional) scraping each event detail page's `<div class="event-subtitle">` into `title` when enabled.
 * Content enrichment (scaffolding) to populate `content` from the event page body (disabled by default; ICS DESCRIPTION remains the fallback unless you enable it).
 * Raw details enrichment to capture the inner HTML of `.events-detail-main` into `rawEventDetails` (disabled by default).
+* Raw extracts enrichment to automatically parse `rawExtractAbstract` and `rawExtractBio` from `rawEventDetails` (enabled by default when raw details are available).
 * Overwrite mode (env `ENRICH_OVERWRITE=1`) to replace existing titles instead of only filling empty ones.
 * Enrichment debug logging via `ENRICH_DEBUG=1` showing fetch/skip/overwrite decisions.
 * Title fallback (when enrichment is enabled): after scraping, any event with a missing/blank/"TBD" title will be filled from its `speaker` field so no event is left without a meaningful title (if a speaker exists).
@@ -232,7 +233,10 @@ Tests cover:
 - ICS retrieval (mocked HTTP)
 - Placeholder manipulation pass-through
 - JSON generation to a file
- - Title enrichment (skip vs fill) and overwrite behavior (`test_enrich_titles`, `test_enrich_overwrite`).
+- Title enrichment (skip vs fill) and overwrite behavior (`test_enrich_titles`, `test_enrich_overwrite`).
+- Content enrichment and format options (`test_enrich_content`).
+- Raw details enrichment (`test_enrich_raw_details`).
+- Raw extracts enrichment with abstract/bio parsing, edge cases, and robustness (`test_enrich_raw_extracts`).
 
 ## Data Manipulation Stub
 `manipulate_data(calendar, variable)` remains a hook for future bespoke filtering / enrichment beyond the generic transform.
@@ -255,7 +259,9 @@ Key fields per event:
 - `content` (string): ICS DESCRIPTION or enriched page body
 - `title` (string): subtitle when enriched, or speaker fallback when enabled
 - `cancelled`, `bannerImage`, `itemType` (string): placeholders (`itemType` currently `"advertisement"`)
-- `rawEventDetails` (string, optional): inner HTML fragment from the event page’s `.events-detail-main` container.
+- `rawEventDetails` (string, optional): inner HTML fragment from the event page's `.events-detail-main` container.
+- `rawExtractAbstract` (string, optional): extracted abstract content from `rawEventDetails` (follows "Abstract:" or `<h*>Abstract</h*>` headers).
+- `rawExtractBio` (string, optional): extracted bio content from `rawEventDetails` (follows "Bio:" or `<h*>Bio</h*>` headers).
 
 Validation: The included schema targets JSON Schema draft-07 for broad tool compatibility. You can validate a produced `events.json` against it using your favorite validator.
 
@@ -305,6 +311,10 @@ These environment variables and workflow inputs control behavior at runtime.
 | `ENRICH_CONTENT` | CLI/CI | bool | `false` | Enable content scraping from the event page into `content` (fallback stays as ICS `DESCRIPTION` if not overwritten). |
 | `ENRICH_CONTENT_OVERWRITE` | CLI/CI | bool | `false` | Overwrite non-empty `content` when enriching. |
 | `ENRICH_CONTENT_FORMAT` | CLI/CI | enum | `text` | Output format for scraped content: `text` (plain), `markdown` (requires `markdownify`), or `html` (inner fragment). |
+| `ENRICH_RAW_DETAILS` | CLI/CI | bool | `false` | Enable raw HTML scraping from the event page into `rawEventDetails` (inner HTML of `.events-detail-main` container). |
+| `ENRICH_RAW_DETAILS_OVERWRITE` | CLI/CI | bool | `false` | Overwrite non-empty `rawEventDetails` when enriching. |
+| `ENRICH_RAW_EXTRACTS` | CLI/CI | bool | `true` | Enable automatic extraction of `rawExtractAbstract` and `rawExtractBio` from `rawEventDetails` (requires raw details enrichment). |
+| `ENRICH_RAW_EXTRACTS_OVERWRITE` | CLI/CI | bool | `false` | Overwrite existing `rawExtractAbstract`/`rawExtractBio` values when extracting. |
 
 Boolean envs accept: `1,true,yes,on` (case-insensitive) for true.
 
@@ -323,5 +333,5 @@ You can also provide a JSON config file via `--config` (copy from `transform_con
 | `force` | `ICS to JSON` | input | `false` | Force regeneration even if ICS content hash is unchanged. |
 | `enrich_titles` | `ICS to JSON`, `ICS Manual Test` | input | `true` | Toggle enrichment on manual runs (scheduled runs always enrich). |
 
-CLI flags mirror the envs: `--enrich-titles`, `--enrich-overwrite`, `--enrich-content`, and `--enrich-content-overwrite`.
+CLI flags mirror the envs: `--enrich-titles`, `--enrich-overwrite`, `--enrich-content`, `--enrich-content-overwrite`, `--enrich-raw-details`, `--enrich-raw-details-overwrite`, `--enrich-raw-extracts`.
 

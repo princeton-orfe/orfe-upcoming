@@ -10,6 +10,10 @@ on:
         description: 'Fetch event page subtitle into title field (default true)'
         required: false
         default: 'true'
+      enrich_raw_extracts:
+        description: 'Extract abstract and bio from raw event details (default true)'
+        required: false
+        default: 'true'
   push:
     branches:
       - main
@@ -33,8 +37,11 @@ jobs:
       ENRICH_CONTENT_OVERWRITE: ${{ vars.ENRICH_CONTENT_OVERWRITE }}
       ENRICH_RAW_DETAILS: ${{ vars.ENRICH_RAW_DETAILS }}
       ENRICH_RAW_DETAILS_OVERWRITE: ${{ vars.ENRICH_RAW_DETAILS_OVERWRITE }}
+      ENRICH_RAW_EXTRACTS: ${{ vars.ENRICH_RAW_EXTRACTS }}
+      ENRICH_RAW_EXTRACTS_OVERWRITE: ${{ vars.ENRICH_RAW_EXTRACTS_OVERWRITE }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       MANUAL_ENRICH: ${{ github.event.inputs.enrich_titles }}
+      MANUAL_RAW_EXTRACTS: ${{ github.event.inputs.enrich_raw_extracts }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -130,7 +137,22 @@ jobs:
           if [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "1" ]; then
             RAW_FLAGS+=" --enrich-raw-details-overwrite"
           fi
-          ENRICH_DEBUG=1 python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG} ${RAW_FLAGS}
+          EXTRACT_FLAGS=""
+          # Handle raw extracts: env vars take precedence, then manual input defaults to true
+          EXTRACT_EFFECTIVE="${ENRICH_RAW_EXTRACTS:-true}"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            case "${MANUAL_RAW_EXTRACTS}" in
+              ""|"true"|"True"|"TRUE") EXTRACT_EFFECTIVE="true" ;;
+              "false"|"False"|"FALSE") EXTRACT_EFFECTIVE="false" ;;
+            esac
+          fi
+          if [ "${EXTRACT_EFFECTIVE}" = "true" ] || [ "${EXTRACT_EFFECTIVE}" = "1" ]; then
+            EXTRACT_FLAGS+=" --enrich-raw-extracts"
+          fi
+          if [ "${ENRICH_RAW_EXTRACTS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_EXTRACTS_OVERWRITE}" = "1" ]; then
+            EXTRACT_FLAGS+=" --enrich-raw-extracts-overwrite"
+          fi
+          ENRICH_DEBUG=1 python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG} ${RAW_FLAGS} ${EXTRACT_FLAGS}
       - name: Validate JSON against schema
         if: steps.check_change.outputs.skip != 'true'
         run: |

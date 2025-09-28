@@ -46,6 +46,15 @@ class RawDetailsEnrichmentStats:
     errors: int = 0
 
 
+@dataclass
+class RawExtractEnrichmentStats:
+    attempted: int = 0
+    updated_abstract: int = 0
+    updated_bio: int = 0
+    skipped_missing_details: int = 0
+    errors: int = 0
+
+
 def fetch_subtitle(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     """Fetch a page and return normalized subtitle text.
 
@@ -264,6 +273,136 @@ def fetch_raw_details_html(url: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     return html
 
 
+def extract_abstract_from_raw_details(raw_html: str) -> str:
+    """Extract abstract content from raw event details HTML.
+
+    Looks for content following "Abstract:" or <h*>Abstract</h*> headers,
+    up to the end of the enclosing div or the next header.
+    """
+    if not raw_html or not raw_html.strip():
+        return ""
+
+    soup = BeautifulSoup(raw_html, "html.parser")
+
+    # Find abstract marker - try different patterns
+    abstract_marker = None
+
+    # Pattern 1: Look for "Abstract:" text
+    for element in soup.find_all(string=lambda text: text and "Abstract:" in text):
+        if "Abstract:" in element.strip():
+            abstract_marker = element.parent
+            break
+
+    # Pattern 2: Look for header tags containing "Abstract"
+    if not abstract_marker:
+        for header in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            if header.get_text(strip=True).lower() == "abstract":
+                abstract_marker = header
+                break
+
+    if not abstract_marker:
+        return ""
+
+    # Extract content from abstract marker until next header or end
+    content_parts = []
+
+    # Start from the element right after the marker
+    if abstract_marker.name and abstract_marker.name.startswith('h'):
+        # For header markers, start from next sibling
+        current = abstract_marker.next_sibling
+    else:
+        # For text markers like "Abstract:", extract from the same element
+        text_content = abstract_marker.get_text(strip=True)
+        if "Abstract:" in text_content:
+            # Extract text after "Abstract:"
+            after_marker = text_content.split("Abstract:", 1)[1].strip()
+            if after_marker:
+                content_parts.append(after_marker)
+        # Then continue with siblings if needed
+        current = abstract_marker.next_sibling
+
+    # Collect content until we hit another header
+    while current:
+        # Stop if we hit any header
+        if hasattr(current, 'name') and current.name and current.name.startswith('h'):
+            break
+
+        # Add text content
+        if hasattr(current, 'get_text'):
+            text = current.get_text(strip=True)
+            if text:
+                content_parts.append(text)
+
+        current = current.next_sibling
+
+    return " ".join(content_parts).strip()
+
+
+def extract_bio_from_raw_details(raw_html: str) -> str:
+    """Extract bio content from raw event details HTML.
+
+    Looks for content following "Bio:" or <h*>Bio</h*> headers,
+    up to the end of the enclosing div or the next header.
+    """
+    if not raw_html or not raw_html.strip():
+        return ""
+
+    soup = BeautifulSoup(raw_html, "html.parser")
+
+    # Find bio marker - try different patterns
+    bio_marker = None
+
+    # Pattern 1: Look for "Bio:" text
+    for element in soup.find_all(string=lambda text: text and "Bio:" in text):
+        if "Bio:" in element.strip():
+            bio_marker = element.parent
+            break
+
+    # Pattern 2: Look for header tags containing "Bio"
+    if not bio_marker:
+        for header in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            if header.get_text(strip=True).lower() == "bio":
+                bio_marker = header
+                break
+
+    if not bio_marker:
+        return ""
+
+    # Extract content from bio marker until next header or end
+    content_parts = []
+
+    # Start from the element right after the marker
+    if bio_marker.name and bio_marker.name.startswith('h'):
+        # For header markers, start from next sibling
+        current = bio_marker.next_sibling
+    else:
+        # For text markers like "Bio:", extract from the same element
+        text_content = bio_marker.get_text(strip=True)
+        if "Bio:" in text_content:
+            # Extract text after "Bio:"
+            after_marker = text_content.split("Bio:", 1)[1].strip()
+            if after_marker:
+                content_parts.append(after_marker)
+        # Then continue with siblings if needed
+        current = bio_marker.next_sibling
+
+    # Collect content until we hit another header
+    while current:
+        # Stop if we hit any header
+        if hasattr(current, 'name') and current.name and current.name.startswith('h'):
+            break
+
+        # Add text content
+        if hasattr(current, 'get_text'):
+            text = current.get_text(strip=True)
+            if text:
+                content_parts.append(text)
+
+        current = current.next_sibling
+
+    return " ".join(content_parts).strip()
+
+
 def enrich_titles(events: List[Dict], enable: bool, session_cache: Optional[Dict[str, str]] = None, overwrite: bool = False) -> TitleEnrichmentStats:
     """Mutate events list in-place adding subtitle to 'title' when available.
 
@@ -416,6 +555,18 @@ def enrichment_raw_details_overwrite_enabled(cli_flag: bool) -> bool:
     return os.getenv("ENRICH_RAW_DETAILS_OVERWRITE", "0") in {"1", "true", "yes", "on"}
 
 
+def enrichment_raw_extracts_enabled(cli_flag: bool) -> bool:
+    if cli_flag:
+        return True
+    return os.getenv("ENRICH_RAW_EXTRACTS", "1") in {"1", "true", "yes", "on"}  # enabled by default
+
+
+def enrichment_raw_extracts_overwrite_enabled(cli_flag: bool) -> bool:
+    if cli_flag:
+        return True
+    return os.getenv("ENRICH_RAW_EXTRACTS_OVERWRITE", "0") in {"1", "true", "yes", "on"}
+
+
 def enrich_content(
     events: List[Dict],
     enable: bool,
@@ -529,4 +680,67 @@ def enrich_raw_details(
         else:
             if debug:
                 print(f"[enrich] raw-details skip(has-value) url={url} overwrite={overwrite}")
+    return stats
+
+
+def enrich_raw_extracts(
+    events: List[Dict],
+    enable: bool,
+    overwrite: bool = False,
+) -> RawExtractEnrichmentStats:
+    """Extract abstract and bio from rawEventDetails into separate fields.
+
+    Adds 'rawExtractAbstract' and 'rawExtractBio' fields when rawEventDetails
+    contains valid HTML with abstract/bio sections.
+
+    By default, does not overwrite existing values unless `overwrite=True`.
+    """
+    stats = RawExtractEnrichmentStats()
+    if not enable:
+        return stats
+
+    debug = os.getenv("ENRICH_DEBUG") in {"1", "true", "yes", "on"}
+
+    for idx, ev in enumerate(events):
+        raw_details = ev.get("rawEventDetails") or ""
+        if not raw_details or not raw_details.strip():
+            stats.skipped_missing_details += 1
+            if debug:
+                print(f"[enrich] raw-extract skip(no-details) event_index={idx}")
+            continue
+
+        stats.attempted += 1
+
+        # Extract abstract
+        existing_abstract = ev.get("rawExtractAbstract")
+        should_overwrite_abstract = overwrite or existing_abstract is None or str(existing_abstract).strip() == ""
+        if should_overwrite_abstract:
+            try:
+                abstract = extract_abstract_from_raw_details(raw_details)
+                if abstract:
+                    ev["rawExtractAbstract"] = abstract
+                    stats.updated_abstract += 1
+                    if debug:
+                        print(f"[enrich] raw-extract abstract updated event_index={idx} len={len(abstract)}")
+            except Exception as e:
+                stats.errors += 1
+                if debug:
+                    print(f"[enrich] raw-extract abstract error event_index={idx} err={e}")
+
+        # Extract bio
+        existing_bio = ev.get("rawExtractBio")
+        should_overwrite_bio = overwrite or existing_bio is None or str(existing_bio).strip() == ""
+        if should_overwrite_bio:
+            try:
+                bio = extract_bio_from_raw_details(raw_details)
+                if bio:
+                    ev["rawExtractBio"] = bio
+                    stats.updated_bio += 1
+                    if debug:
+                        print(f"[enrich] raw-extract bio updated event_index={idx} len={len(bio)}")
+            except Exception as e:
+                stats.errors += 1
+                if debug:
+                    print(f"[enrich] raw-extract bio error event_index={idx} err={e}")
+
     return stats
