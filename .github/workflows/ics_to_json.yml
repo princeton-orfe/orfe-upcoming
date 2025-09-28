@@ -147,15 +147,15 @@ jobs:
           # Determine release tag based on trigger
           if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" = "dev-asset" ]; then
             TAG=dev
-            TITLE="Development events JSON"
+            TITLE="Development Events"
             BODY="Development build of events feed from dev-asset branch. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
           elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" = "main" ]; then
             TAG=latest
-            TITLE="Latest events JSON"
+            TITLE="Latest Events"
             BODY="Automated update of events feed from main branch. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
           else
             TAG=latest
-            TITLE="Latest events JSON"
+            TITLE="Latest Events"
             BODY="Automated update of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
           fi
           # If release exists, delete it (so it's guaranteed to be 'latest' or 'dev')
