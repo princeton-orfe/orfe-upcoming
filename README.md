@@ -331,9 +331,9 @@ You can also provide a JSON config file via `--config` (copy from `transform_con
 | Name | Workflow | Type | Default | Purpose |
 |------|----------|------|---------|---------|
 | `force` | `ICS to JSON` | input | `false` | Force regeneration even if ICS content hash is unchanged. |
-| `enrich_titles` | `ICS to JSON`, `ICS Manual Test` | input | `true` | Toggle enrichment on manual runs (scheduled runs always enrich). |
-| `enrich_raw_details` | `ICS Manual Test` | input | `true` | Capture raw event details HTML on manual test runs. |
-| `replace_latest` | `ICS to JSON`, `ICS Manual Test` | input | `false` | Replace the Latest Events release instead of creating a separate manual release. |
+| `enrich_titles` | `ICS to JSON` | input | `true` | Toggle enrichment on manual runs (scheduled runs always enrich). |
+| `enrich_raw_details` | `ICS to JSON` | input | `true` | Capture raw event details HTML on manual runs. |
+| `replace_latest` | `ICS to JSON` | input | `false` | Replace the Latest Events release instead of creating a separate manual release. |
 
 CLI flags mirror the envs: `--enrich-titles`, `--enrich-overwrite`, `--enrich-content`, `--enrich-content-overwrite`, `--enrich-raw-details`, `--enrich-raw-details-overwrite`, `--enrich-raw-extracts`.
 
