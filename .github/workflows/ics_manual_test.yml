@@ -25,6 +25,7 @@ jobs:
     env:
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
+      OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       ENRICH_TITLES: ${{ github.event.inputs.enrich_titles }}
       ENRICH_RAW_DETAILS_INPUT: ${{ github.event.inputs.enrich_raw_details }}
@@ -49,17 +50,18 @@ jobs:
         run: |
           set -euo pipefail
           : "${OUTPUT_FILE:=events.json}"; echo "OUTPUT_FILE=$OUTPUT_FILE"
-          if [ -z "${ICS_URL}" ]; then echo "ICS_URL not set" >&2; exit 1; fi
-          ENRICH_FLAG=""; if [ "${ENRICH_TITLES}" = "true" ]; then ENRICH_FLAG="--enrich-titles"; fi
+          if [ -z "${ICS_URL:-}" ]; then echo "ICS_URL not set" >&2; exit 1; fi
+          ENRICH_FLAG=""
+          if [ "${ENRICH_TITLES:-false}" = "true" ]; then ENRICH_FLAG="--enrich-titles"; fi
           RAW_FLAGS=""
           # Input takes precedence; fall back to repo variable if input is empty
-          if [ "${ENRICH_RAW_DETAILS_INPUT}" = "true" ] || { [ -z "${ENRICH_RAW_DETAILS_INPUT}" ] && { [ "${ENRICH_RAW_DETAILS}" = "true" ] || [ "${ENRICH_RAW_DETAILS}" = "1" ]; }; }; then
+          if [ "${ENRICH_RAW_DETAILS_INPUT:-}" = "true" ] || { [ -z "${ENRICH_RAW_DETAILS_INPUT:-}" ] && { [ "${ENRICH_RAW_DETAILS:-false}" = "true" ] || [ "${ENRICH_RAW_DETAILS:-false}" = "1" ]; }; }; then
             RAW_FLAGS+=" --enrich-raw-details"
           fi
-          if [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "1" ]; then
+          if [ "${ENRICH_RAW_DETAILS_OVERWRITE:-false}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE:-false}" = "1" ]; then
             RAW_FLAGS+=" --enrich-raw-details-overwrite"
           fi
-          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG} ${RAW_FLAGS}
+          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE:-default}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG} ${RAW_FLAGS}
       - name: Validate JSON against schema
         run: |
           set -euo pipefail
