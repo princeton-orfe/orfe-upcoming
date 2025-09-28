@@ -16,14 +16,6 @@ Automated pipeline that fetches a department ICS feed, applies configurable tran
 
 ## Usage
 
-### Consuming JSON
-
-```js
-fetch('https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json')
-	.then(r => r.json())
-	.then(events => console.log(events));
-```
-
 ### Release Assets
 
 **Production** (`latest`): `https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json`
