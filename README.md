@@ -53,17 +53,17 @@ python tools/validate_json.py --schema schema/events.schema.json --data events.j
 | `OUTPUT_FILE` | string | `events.json` | Output filename |
 | `REPO_VARIABLE` | string | `default` | Variable for `manipulate_data` |
 | `TARGET_TZ` | string | `America/New_York` | Target timezone |
-| `ENRICH_TITLES` | bool | `false` | Enable title scraping |
-| `ENRICH_OVERWRITE` | bool | `false` | Overwrite existing titles |
+| `ENRICH_TITLES` | bool | `false` | Enable title scraping from individual event pages |
+| `ENRICH_OVERWRITE` | bool | `false` | Overwrite existing titles with scraped titles |
 | `ENRICH_DEBUG` | bool | `false` | Verbose enrichment logging |
 | `FALLBACK_PREPEND_TEXT` | string | — | Prefix for speaker fallback titles |
-| `ENRICH_CONTENT` | bool | `false` | Enable content scraping |
-| `ENRICH_CONTENT_OVERWRITE` | bool | `false` | Overwrite existing content |
+| `ENRICH_CONTENT` | bool | `false` | Enable content scraping from individual event pages |
+| `ENRICH_CONTENT_OVERWRITE` | bool | `false` | Overwrite existing content with scraped content |
 | `ENRICH_CONTENT_FORMAT` | enum | `text` | Content format: `text`, `markdown`, `html` |
-| `ENRICH_RAW_DETAILS` | bool | `false` | Enable raw HTML extraction |
-| `ENRICH_RAW_DETAILS_OVERWRITE` | bool | `false` | Overwrite existing raw details |
+| `ENRICH_RAW_DETAILS` | bool | `false` | Enable raw HTML extraction and preservation in addition to content |
+| `ENRICH_RAW_DETAILS_OVERWRITE` | bool | `false` | Overwrite existing raw details with enrichment content |
 | `ENRICH_RAW_EXTRACTS` | bool | `true` | Enable abstract/bio extraction |
-| `ENRICH_RAW_EXTRACTS_OVERWRITE` | bool | `false` | Overwrite existing extracts |
+| `ENRICH_RAW_EXTRACTS_OVERWRITE` | bool | `false` | Overwrite existing extracts (N/A) |
 | `BOT_BYPASS_HEADER_VALUE` | string | `1` | Bot bypass header value |
 
 ### CLI Flags
@@ -108,28 +108,17 @@ Output is a JSON array of event objects validated against `schema/events.schema.
 - `rawEventDetails`: Inner HTML fragment
 - `rawExtractAbstract`/`rawExtractBio`: Extracted content
 
-## Development
+## Tests
 
-### Setup
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pytest -q
-```
-
-### Testing
-
-Tests cover:
-- ICS retrieval and transformation
+- ICS validation, retrieval, and transformation
 - Title, content, and raw details enrichment
 - JSON schema validation
 - Regression testing with examples
 
-### Examples
+## Examples
 
-Folder: `examples/`
+See the `examples` folder:
+
 - `sample_input.example.ics`: Curated ICS slice
 - `sample_output.expected.json`: Expected JSON subset
 
@@ -141,14 +130,4 @@ mv /tmp/new.json examples/sample_output.expected.json
 pytest tests/test_transform.py::test_example_files_roundtrip -q
 ```
 
-### Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for enriched local validation and CI details.
-
-### Future Enhancements
-
-* Additional enrichment (images, speaker bios)
-* Text normalization (HTML entities, Unicode)
-* Config-driven filters (series allowlists)
-* Structured logging and metrics
 
