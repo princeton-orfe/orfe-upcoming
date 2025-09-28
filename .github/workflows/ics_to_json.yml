@@ -17,11 +17,6 @@ on:
         required: false
         default: true
         type: boolean
-      replace_latest:
-        description: 'Replace the Latest Events release (instead of creating manual-latest)'
-        required: false
-        default: false
-        type: boolean
   push:
     branches:
       - main
@@ -50,7 +45,6 @@ jobs:
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       MANUAL_ENRICH: ${{ github.event.inputs.enrich_titles }}
       MANUAL_RAW_EXTRACTS: ${{ github.event.inputs.enrich_raw_extracts }}
-      MANUAL_REPLACE_LATEST: ${{ github.event.inputs.replace_latest }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -184,14 +178,10 @@ jobs:
             TAG=latest
             TITLE="Latest Events"
             BODY="Automated update of events feed from main branch. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
-          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ] && [ "${MANUAL_REPLACE_LATEST}" = "true" ]; then
+          elif [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             TAG=latest
             TITLE="Latest Events (Manual)"
             BODY="Manual update of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
-          else
-            TAG=latest
-            TITLE="Latest Events"
-            BODY="Automated update of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
           fi
           # If release exists, delete it (so it's guaranteed to be 'latest' or 'dev')
           if gh release view "$TAG" >/dev/null 2>&1; then
