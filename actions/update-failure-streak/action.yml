@@ -1,0 +1,58 @@
+name: 'Update Failure Streak'
+description: 'Updates the failure streak counter based on job status'
+inputs:
+  job-status:
+    description: 'The status of the job (success or failure)'
+    required: true
+  streak-file:
+    description: 'Path to the streak file'
+    required: true
+    default: '.ci/failure-streak'
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Reset failure streak on success
+      if: inputs.job-status == 'success'
+      shell: bash
+      run: |
+        mkdir -p $(dirname ${{ inputs.streak-file }})
+        prior=$(cat ${{ inputs.streak-file }} 2>/dev/null || echo 0)
+        if [ "$prior" != "0" ]; then
+          echo 0 > ${{ inputs.streak-file }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ${{ inputs.streak-file }}
+          git commit -m "chore(ci): reset failure streak to 0 [skip ci]" || true
+          git push origin HEAD:${GITHUB_REF_NAME} || true
+        fi
+        echo "Failure streak reset (prior=$prior)." >> $GITHUB_STEP_SUMMARY
+    - name: Handle failure (increment streak, maybe open issue)
+      if: inputs.job-status == 'failure'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        set -euo pipefail
+        mkdir -p $(dirname ${{ inputs.streak-file }})
+        prior=$(cat ${{ inputs.streak-file }} 2>/dev/null || echo 0)
+        new=$((prior + 1))
+        echo $new > ${{ inputs.streak-file }}
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add ${{ inputs.streak-file }}
+        git commit -m "chore(ci): failure streak $new [skip ci]" || true
+        git push origin HEAD:${GITHUB_REF_NAME} || true
+        # Ensure label exists
+        gh label list --search ci-failure | grep -qi '^ci-failure' || gh label create ci-failure --color FF0000 --description "Automated CI failure alerts" || true
+        if [ "$new" -ge 3 ]; then
+          existing=$(gh issue list --state open --label ci-failure --search "ICS feed processing failures" --json number -q '.[0].number' || echo "")
+          if [ -z "$existing" ]; then
+            gh issue create --title "ICS feed processing failures (streak $new) on ${GITHUB_REF_NAME}" --label ci-failure --body "The ICS to JSON workflow has failed $new consecutive times on branch ${GITHUB_REF_NAME}. Please investigate logs." || true
+          else
+            gh issue comment "$existing" --body "Another failure on ${GITHUB_REF_NAME} (streak $new)." || true
+          fi
+        fi
+        echo "Failure streak incremented to $new" >> $GITHUB_STEP_SUMMARY
