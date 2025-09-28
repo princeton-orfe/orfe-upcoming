@@ -95,7 +95,7 @@ jobs:
           set -euo pipefail
           OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
           TAG="latest"
-          TITLE="Latest Events ${{ github.event_name == 'workflow_dispatch' && '(Manual)' || '' }}"
+          TITLE="Latest Events"
           BODY="Automated update of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
 
           # Overwrite existing 'latest' release
