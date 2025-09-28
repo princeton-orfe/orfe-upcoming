@@ -7,6 +7,14 @@ on:
         description: 'Fetch event page subtitle into title field'
         required: false
         default: 'true'
+      enrich_raw_details:
+        description: 'Capture rawEventDetails (HTML) from .events-detail-main'
+        required: false
+        default: 'true'
+      replace_latest:
+        description: 'Replace the Latest Events release (instead of creating manual-latest)'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -19,6 +27,10 @@ jobs:
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       ENRICH_TITLES: ${{ github.event.inputs.enrich_titles }}
+      ENRICH_RAW_DETAILS_INPUT: ${{ github.event.inputs.enrich_raw_details }}
+      ENRICH_RAW_DETAILS: ${{ vars.ENRICH_RAW_DETAILS }}
+      ENRICH_RAW_DETAILS_OVERWRITE: ${{ vars.ENRICH_RAW_DETAILS_OVERWRITE }}
+      REPLACE_LATEST: ${{ github.event.inputs.replace_latest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,16 +51,40 @@ jobs:
           : "${OUTPUT_FILE:=events.json}"; echo "OUTPUT_FILE=$OUTPUT_FILE"
           if [ -z "${ICS_URL}" ]; then echo "ICS_URL not set" >&2; exit 1; fi
           ENRICH_FLAG=""; if [ "${ENRICH_TITLES}" = "true" ]; then ENRICH_FLAG="--enrich-titles"; fi
-          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG}
+          RAW_FLAGS=""
+          # Input takes precedence; fall back to repo variable if input is empty
+          if [ "${ENRICH_RAW_DETAILS_INPUT}" = "true" ] || { [ -z "${ENRICH_RAW_DETAILS_INPUT}" ] && { [ "${ENRICH_RAW_DETAILS}" = "true" ] || [ "${ENRICH_RAW_DETAILS}" = "1" ]; }; }; then
+            RAW_FLAGS+=" --enrich-raw-details"
+          fi
+          if [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "true" ] || [ "${ENRICH_RAW_DETAILS_OVERWRITE}" = "1" ]; then
+            RAW_FLAGS+=" --enrich-raw-details-overwrite"
+          fi
+          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE}" ${ENRICH_FLAG} ${RAW_FLAGS}
+      - name: Validate JSON against schema
+        run: |
+          set -euo pipefail
+          : "${OUTPUT_FILE:=events.json}"
+          python tools/validate_json.py --schema schema/events.schema.json --data "${OUTPUT_FILE}"
       - name: Publish transient release (manual-latest)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           : "${OUTPUT_FILE:=events.json}"
-          TAG=manual-latest
+          
+          # Determine release tag and title based on replace_latest option
+          if [ "${REPLACE_LATEST}" = "true" ]; then
+            TAG=latest
+            TITLE="Latest Events (Manual Test)"
+            NOTES="Manual test run replacing latest events. Generated $(date -u)"
+          else
+            TAG=manual-latest
+            TITLE="Manual test latest"
+            NOTES="Manual test run $(date -u)"
+          fi
+          
           if gh release view "$TAG" >/dev/null 2>&1; then gh release delete "$TAG" -y || true; fi
-          gh release create "$TAG" "$OUTPUT_FILE" --title "Manual test latest" --notes "Manual test run $(date -u)" --latest=false
+          gh release create "$TAG" "$OUTPUT_FILE" --title "$TITLE" --notes "$NOTES" --latest=false
           echo "Manual test asset: https://github.com/${GITHUB_REPOSITORY}/releases/tag/$TAG" >> $GITHUB_STEP_SUMMARY
       - name: Upload artifact
         uses: actions/upload-artifact@v4
