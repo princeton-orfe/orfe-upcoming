@@ -117,5 +117,4 @@ You can also provide a JSON config file via `--config` (copy from `transform_con
 | `replace_latest` | `ICS to JSON` | input | `false` | Replace the Latest Events release instead of creating a separate manual release. |
 
 CLI flags mirror the envs: `--enrich-titles`, `--enrich-overwrite`, `--enrich-content`, `--enrich-content-overwrite`, `--enrich-raw-details`, `--enrich-raw-details-overwrite`, `--enrich-raw-extracts`.
->>>>>>> origin/main
 
