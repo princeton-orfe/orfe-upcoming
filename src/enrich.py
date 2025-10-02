@@ -15,7 +15,7 @@ import requests
 from bs4 import BeautifulSoup  # type: ignore
 try:  # optional dependency for Markdown conversion
     from markdownify import markdownify as _md
-except Exception:  # pragma: no cover - optional
+except (ImportError, ModuleNotFoundError):  # pragma: no cover - optional
     _md = None  # type: ignore
 
 
