@@ -23,8 +23,16 @@ def _format_error(err: ValidationError) -> str:
 
 
 def validate(schema_path: Path, data_path: Path) -> int:
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    data = json.loads(data_path.read_text(encoding="utf-8"))
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse JSON schema file '{schema_path}': {e}")
+        return 1
+    try:
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse JSON data file '{data_path}': {e}")
+        return 1
     validator = Draft7Validator(schema)
     errors = sorted(validator.iter_errors(data), key=lambda e: e.path)
     if errors:

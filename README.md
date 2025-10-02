@@ -40,88 +40,6 @@ ENRICH_TITLES=1 python -m src.main --ics-url "$ICS_URL" --limit 2 --print-only
 
 Validate output:
 ```bash
-python tools/validate_json.py --schema schema/events.schema.json --data events.json
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `ICS_URL` | string | — | Upstream ICS feed URL |
-| `OUTPUT_FILE` | string | `events.json` | Output filename |
-| `REPO_VARIABLE` | string | `default` | Variable for `manipulate_data` |
-| `TARGET_TZ` | string | `America/New_York` | Target timezone |
-| `ENRICH_TITLES` | bool | `false` | Enable title scraping from individual event pages |
-| `ENRICH_OVERWRITE` | bool | `false` | Overwrite existing titles with scraped titles |
-| `ENRICH_DEBUG` | bool | `false` | Verbose enrichment logging |
-| `FALLBACK_PREPEND_TEXT` | string | — | Prefix for speaker fallback titles |
-| `ENRICH_CONTENT` | bool | `false` | Enable content scraping from individual event pages |
-| `ENRICH_CONTENT_OVERWRITE` | bool | `false` | Overwrite existing content with scraped content |
-| `ENRICH_CONTENT_FORMAT` | enum | `text` | Content format: `text`, `markdown`, `html` |
-| `ENRICH_RAW_DETAILS` | bool | `false` | Enable raw HTML extraction and preservation in addition to content |
-| `ENRICH_RAW_DETAILS_OVERWRITE` | bool | `false` | Overwrite existing raw details with enrichment content |
-| `ENRICH_RAW_EXTRACTS` | bool | `true` | Enable abstract/bio extraction |
-| `ENRICH_RAW_EXTRACTS_OVERWRITE` | bool | `false` | Overwrite existing extracts (N/A) |
-| `BOT_BYPASS_HEADER_VALUE` | string | `1` | Bot bypass header value |
-
-### CLI Flags
-
-| Flag | Description |
-|------|-------------|
-| `--ics-url URL` | Override ICS URL |
-| `--output FILE` | Output filename |
-| `--config FILE` | JSON config file |
-| `--print-only` | Print to stdout |
-| `--limit N` | Limit events |
-| `--enrich-titles` | Enable title enrichment |
-| `--enrich-overwrite` | Overwrite existing titles |
-| `--enrich-content` | Enable content enrichment |
-| `--enrich-content-overwrite` | Overwrite existing content |
-| `--enrich-raw-details` | Enable raw details extraction |
-| `--enrich-raw-details-overwrite` | Overwrite existing raw details |
-| `--enrich-raw-extracts` | Enable abstract/bio extraction |
-
-### GitHub Actions
-
-| Input | Workflow | Type | Default | Description |
-|-------|----------|------|---------|-------------|
-| `force` | ICS to JSON | boolean | `false` | Force regeneration |
-| `enrich_titles` | ICS to JSON | boolean | `true` | Enable title enrichment |
-
-## Schema
-
-Output is a JSON array of event objects validated against `schema/events.schema.json` (Draft-07).
-
-**Required fields:**
-- `guid`: Unique ID from ICS UID
-- `startTime`/`endTime`: Formatted as `YYYY-MM-DDTHH:mm:ss`
-- `urlRef`: Event page URL
-- `location`: Object with `name`, `id`, `detail`
-- `title`, `cancelled`, `bannerImage`, `itemType`: Strings
-
-**Optional fields:**
-- `series`: Comma-joined categories
-- `speaker`: Event speaker/title
-- `content`: Description text
-- `rawEventDetails`: Inner HTML fragment
-- `rawExtractAbstract`/`rawExtractBio`: Extracted content
-
-## Tests
-
-- ICS validation, retrieval, and transformation
-- Title, content, and raw details enrichment
-- JSON schema validation
-- Regression testing with examples
-
-## Examples
-
-See the `examples` folder:
-
-- `sample_input.example.ics`: Curated ICS slice
-- `sample_output.expected.json`: Expected JSON subset
-
 Update examples after changes:
 ```bash
 python -m src.main --ics-url file://$PWD/examples/sample_input.example.ics --print-only > /tmp/new.json
@@ -130,4 +48,74 @@ mv /tmp/new.json examples/sample_output.expected.json
 pytest tests/test_transform.py::test_example_files_roundtrip -q
 ```
 
+One-liners:
+- Generate and validate from your ICS_URL
+	```bash
+	make install
+	ICS_URL="https://example.com/calendar.ics" make gen-enriched validate
+	```
+- Validate a previously generated file
+	```bash
+	make validate
+	```
+- Use the example ICS and validate (with enrichment and fallback applied)
+	```bash
+	make example-validate-enriched
+	```
+
+Alternatively invoke the validator directly:
+```bash
+python tools/validate_json.py --schema schema/events.schema.json --data events.json
+```
+
+## Configuration reference (env vars and inputs)
+
+These environment variables and workflow inputs control behavior at runtime.
+
+### Core runtime
+
+| Name | Scope | Type | Default | Purpose |
+|------|-------|------|---------|---------|
+| `ICS_URL` | CLI/CI | string | — | Upstream ICS feed URL. Supports http(s), `file://`, or local paths. |
+| `OUTPUT_FILE` | CLI/CI | string | `events.json` | Output JSON filename. |
+| `REPO_VARIABLE` | CLI/CI | string | `default` | Arbitrary variable passed to `manipulate_data` (currently unused). |
+
+### Enrichment and fallback
+
+| Name | Scope | Type | Default | Purpose |
+|------|-------|------|---------|---------|
+| `ENRICH_TITLES` | CLI/CI | bool | `false` (manual CLI), `true` (scheduled CI, manual workflow default) | Enable subtitle scraping to populate `title` from each event detail page. |
+| `ENRICH_OVERWRITE` | CLI/CI | bool | `false` | When enriching, overwrite non-empty `title` values instead of only filling blanks. |
+| `ENRICH_DEBUG` | CLI/CI | bool | `false` | Verbose enrichment logging (fetch/skip/overwrite decisions). |
+| `FALLBACK_PREPEND_TEXT` | CLI/CI | string | — | Prefix template for titles filled from `speaker`. Supports `{series}` placeholder; missing keys render empty and whitespace is collapsed. Max length: 128 chars. Example: `A {series} Talk by` → `A Optimization Seminar Talk by Alice`. |
+| `BOT_BYPASS_HEADER_VALUE` | CLI/CI | string | `1` | Value sent as `x-wdsoit-bot-bypass` header during enrichment requests. |
+| `ENRICH_CONTENT` | CLI/CI | bool | `false` | Enable content scraping from the event page into `content` (fallback stays as ICS `DESCRIPTION` if not overwritten). |
+| `ENRICH_CONTENT_OVERWRITE` | CLI/CI | bool | `false` | Overwrite non-empty `content` when enriching. |
+| `ENRICH_CONTENT_FORMAT` | CLI/CI | enum | `text` | Output format for scraped content: `text` (plain), `markdown` (requires `markdownify`), or `html` (inner fragment). |
+| `ENRICH_RAW_DETAILS` | CLI/CI | bool | `false` | Enable raw HTML scraping from the event page into `rawEventDetails` (inner HTML of `.events-detail-main` container). |
+| `ENRICH_RAW_DETAILS_OVERWRITE` | CLI/CI | bool | `false` | Overwrite non-empty `rawEventDetails` when enriching. |
+| `ENRICH_RAW_EXTRACTS` | CLI/CI | bool | `true` | Enable automatic extraction of `rawExtractAbstract` and `rawExtractBio` from `rawEventDetails` (requires raw details enrichment). |
+| `ENRICH_RAW_EXTRACTS_OVERWRITE` | CLI/CI | bool | `false` | Overwrite existing `rawExtractAbstract`/`rawExtractBio` values when extracting. |
+
+Boolean envs accept: `1,true,yes,on` (case-insensitive) for true.
+
+### Transform parameters
+
+| Name | Scope | Type | Default | Purpose |
+|------|-------|------|---------|---------|
+| `TARGET_TZ` | CLI/CI | string | `America/New_York` | Target timezone for datetime normalization. |
+
+You can also provide a JSON config file via `--config` (copy from `transform_config.example.json`) to override mappings, placeholders, masks, etc.
+
+### GitHub Actions inputs (manual/scheduled)
+
+| Name | Workflow | Type | Default | Purpose |
+|------|----------|------|---------|---------|
+| `force` | `ICS to JSON` | input | `false` | Force regeneration even if ICS content hash is unchanged. |
+| `enrich_titles` | `ICS to JSON` | input | `true` | Toggle enrichment on manual runs (scheduled runs always enrich). |
+| `enrich_raw_details` | `ICS to JSON` | input | `true` | Capture raw event details HTML on manual runs. |
+| `replace_latest` | `ICS to JSON` | input | `false` | Replace the Latest Events release instead of creating a separate manual release. |
+
+CLI flags mirror the envs: `--enrich-titles`, `--enrich-overwrite`, `--enrich-content`, `--enrich-content-overwrite`, `--enrich-raw-details`, `--enrich-raw-details-overwrite`, `--enrich-raw-extracts`.
+>>>>>>> origin/main
 
