@@ -21,7 +21,7 @@
 - For new enrichment logic, reuse the existing `requests.get` pattern (headers, `DEFAULT_TIMEOUT`) and make it monkeypatch-friendly (no global session state).
 - Preserve JSON output formatting (indent=2). When writing files use UTF-8.
 - ICS transformation: respect `TransformConfig` knobs. If adding new config fields, update defaults, loaders, and extend tests.
-- Keep fallback rules intact: `fill_title_fallback` only overwrites empty/`TBD` titles unless explicitly told and enforces the 128-char prefix cap.
+- Keep fallback rules intact: `fill_title_fallback` only overwrite empty/`TBD` titles unless explicitly told and enforces the 128-char prefix cap.
 - Handle environment switches via small helpers (`enrichment_*_enabled`). Extend them if new flags are introduced to stay testable.
 
 ## Configuration & Environment
