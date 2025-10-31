@@ -33,6 +33,9 @@ jobs:
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       # Logic for enrichment flag: always on for schedule, respects input for dispatch
       ENRICH_FLAG: ${{ (github.event_name == 'schedule' || github.event.inputs.enrich_titles == 'true') && '--enrich-titles' || '' }}
+      # Always include raw details and raw extracts in production builds
+      RAW_DETAILS_FLAG: "--enrich-raw-details"
+      EXTRACT_FLAGS: "--enrich-raw-extracts"
 
     steps:
       - name: Checkout repo
@@ -80,7 +83,7 @@ jobs:
       - name: Generate JSON
         if: steps.check_change.outputs.skip != 'true'
         run: |
-          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE:-events.json}" ${ENRICH_FLAG}
+          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE:-events.json}" ${ENRICH_FLAG} ${RAW_DETAILS_FLAG} ${EXTRACT_FLAGS}
 
       - name: Validate JSON against schema
         if: steps.check_change.outputs.skip != 'true'
