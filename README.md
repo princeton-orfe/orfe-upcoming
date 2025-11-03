@@ -104,6 +104,7 @@ Boolean envs accept: `1,true,yes,on` (case-insensitive) for true.
 | Name | Scope | Type | Default | Purpose |
 |------|-------|------|---------|---------|
 | `TARGET_TZ` | CLI/CI | string | `America/New_York` | Target timezone for datetime normalization. |
+| `EXCLUDE_SERIES` | CLI/CI | string or JSON array | — | Comma-separated list or JSON array of series names to drop after transformation. |
 
 You can also provide a JSON config file via `--config` (copy from `transform_config.example.json`) to override mappings, placeholders, masks, etc.
 
@@ -117,4 +118,5 @@ You can also provide a JSON config file via `--config` (copy from `transform_con
 | `replace_latest` | `ICS to JSON` | input | `false` | Replace the Latest Events release instead of creating a separate manual release. |
 
 CLI flags mirror the envs: `--enrich-titles`, `--enrich-overwrite`, `--enrich-content`, `--enrich-content-overwrite`, `--enrich-raw-details`, `--enrich-raw-details-overwrite`, `--enrich-raw-extracts`.
+`--exclude-series` accepts comma-separated names and can be repeated; it mirrors `EXCLUDE_SERIES`.
 

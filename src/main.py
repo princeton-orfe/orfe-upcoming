@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from urllib.parse import urlparse
 import requests
@@ -34,6 +35,82 @@ from .enrich import (
 ICS_URL = os.getenv("ICS_URL", "https://example.com/calendar.ics")
 REPO_VARIABLE = os.getenv("REPO_VARIABLE", "default")
 OUTPUT_FILE_ENV = os.getenv("OUTPUT_FILE", "events.json")
+SERIES_EXCLUDE_ENV_KEY = "EXCLUDE_SERIES"
+
+
+def _split_series_value(raw: str) -> list[str]:
+    raw = (raw or "").strip()
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = None
+    if isinstance(parsed, list):
+        values = parsed
+    else:
+        values = raw.split(",")
+    cleaned: list[str] = []
+    for item in values:
+        text = str(item).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def _collect_series_exclusions(*sources: object) -> tuple[set[str], list[str]]:
+    tokens: list[str] = []
+    for source in sources:
+        if source is None:
+            continue
+        if isinstance(source, str):
+            tokens.extend(_split_series_value(source))
+            continue
+        if isinstance(source, Iterable):
+            for item in source:
+                if item is None:
+                    continue
+                tokens.extend(_split_series_value(str(item)))
+    normalized = {token.casefold() for token in tokens if token}
+    ordered_unique = sorted(dict.fromkeys(tokens), key=str.casefold)
+    return normalized, ordered_unique
+
+
+def _apply_series_exclusions(events: list[dict], exclusions: set[str]) -> tuple[list[dict], int]:
+    if not exclusions:
+        return events, 0
+    filtered: list[dict] = []
+    removed = 0
+    for event in events:
+        series_value = event.get("series")
+        if isinstance(series_value, str):
+            series_tokens = [s.strip() for s in series_value.split(",") if s.strip()]
+        elif isinstance(series_value, Iterable):
+            series_tokens = [str(s).strip() for s in series_value if str(s).strip()]
+        elif series_value is None:
+            series_tokens = []
+        else:
+            series_tokens = [str(series_value).strip()]
+        if any(token.casefold() in exclusions for token in series_tokens):
+            removed += 1
+            continue
+        filtered.append(event)
+    return filtered, removed
+
+
+def _resolve_series_exclusions(
+    cli_values: Iterable[str] | None = None,
+    extra_values: Iterable[str] | None = None,
+) -> tuple[set[str], list[str]]:
+    env_value = os.getenv(SERIES_EXCLUDE_ENV_KEY)
+    sources: tuple[object, ...]
+    packed: list[object] = [env_value]
+    if cli_values:
+        packed.append(cli_values)
+    if extra_values:
+        packed.append(extra_values)
+    sources = tuple(packed)
+    return _collect_series_exclusions(*sources)
 
 
 def fetch_ics(url: str) -> str:
@@ -76,6 +153,7 @@ def generate_events_json(
     ics_url: str = ICS_URL,
     repo_variable: str = REPO_VARIABLE,
     output_path: str | os.PathLike = "events.json",
+    exclude_series: Iterable[str] | None = None,
 ) -> Path:
     """Fetch, manipulate and write events JSON.
 
@@ -87,6 +165,9 @@ def generate_events_json(
     # Apply transformation config (future: load custom config)
     cfg = TransformConfig()
     data = transform_calendar(manipulated, cfg)
+    exclusions, _ = _resolve_series_exclusions(extra_values=exclude_series)
+    if exclusions:
+        data, _ = _apply_series_exclusions(data, exclusions)
     out_path = Path(output_path)
     out_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return out_path
@@ -156,6 +237,15 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Extract abstract and bio from rawEventDetails into separate fields (requires raw details enrichment)",
     )
+    p.add_argument(
+        "--exclude-series",
+        action="append",
+        default=None,
+        help=(
+            "Exclude events whose transformed 'series' value matches these names. "
+            "Accepts comma-separated strings or repeated flags (env EXCLUDE_SERIES)."
+        ),
+    )
     return p.parse_args(argv)
 
 
@@ -168,6 +258,16 @@ def main(argv: list[str] | None = None) -> int:
     manipulated = manipulate_data(calendar, ns.repo_variable)
     cfg = load_config(config_path)
     data = transform_calendar(manipulated, cfg)
+    exclusions, exclusion_labels = _resolve_series_exclusions(cli_values=ns.exclude_series)
+    if exclusions:
+        data, removed = _apply_series_exclusions(data, exclusions)
+        if removed:
+            label_text = ", ".join(exclusion_labels) if exclusion_labels else "n/a"
+            print(
+                "Applied series exclusion filter (%s) -> removed %d events"
+                % (label_text, removed),
+                file=sys.stderr,
+            )
     # Optional enrichment (network I/O) - perform as late as possible just before output
     do_enrich = enrichment_enabled(ns.enrich_titles)
     overwrite = enrichment_overwrite_enabled(ns.enrich_overwrite)

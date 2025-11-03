@@ -32,6 +32,7 @@ jobs:
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
+      NOFPO_OUTPUT_FILE: events-nofpo.json
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       # Set flags based on inputs declaratively
@@ -88,10 +89,20 @@ jobs:
         run: |
           python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${OUTPUT_FILE:-events.json}" ${ENRICH_FLAG} ${RAW_FLAGS} ${EXTRACT_FLAGS}
 
+      - name: Generate JSON excluding FPO series
+        if: steps.check_change.outputs.skip != 'true'
+        run: |
+          python -m src.main --ics-url "${ICS_URL}" --repo-variable "${REPO_VARIABLE}" --output "${NOFPO_OUTPUT_FILE:-events-nofpo.json}" --exclude-series "FPO" ${ENRICH_FLAG} ${RAW_FLAGS} ${EXTRACT_FLAGS}
+
       - name: Validate JSON against schema
         if: steps.check_change.outputs.skip != 'true'
         run: |
           python tools/validate_json.py --schema schema/events.schema.json --data "${OUTPUT_FILE:-events.json}"
+
+      - name: Validate JSON against schema (No FPO)
+        if: steps.check_change.outputs.skip != 'true'
+        run: |
+          python tools/validate_json.py --schema schema/events.schema.json --data "${NOFPO_OUTPUT_FILE:-events-nofpo.json}"
 
       - name: Publish "dev" release
         if: steps.check_change.outputs.skip != 'true'
@@ -100,22 +111,26 @@ jobs:
         run: |
           set -euo pipefail
           OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
+          OUTPUT_NOFPO="${NOFPO_OUTPUT_FILE:-events-nofpo.json}"
           TAG="dev"
           TITLE="Development Events"
-          BODY="Development build of events feed. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
+          BODY="Development build of events feed. Includes filtered variant without FPO series. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
 
           # Overwrite existing 'dev' release
           gh release delete "$TAG" -y 2>/dev/null || true
-          gh release create "$TAG" "$OUTPUT_ASSET" --title "$TITLE" --notes "$BODY"
+          gh release create "$TAG" "$OUTPUT_ASSET" "$OUTPUT_NOFPO" --title "$TITLE" --notes "$BODY"
           
           echo "Dev asset URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/dev/${OUTPUT_ASSET}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Dev asset (no FPO) URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/dev/${OUTPUT_NOFPO}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JSON artifact (Dev)
         if: steps.check_change.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: events-json-dev
-          path: ${{ env.OUTPUT_FILE || 'events.json' }}
+          path: |
+            ${{ env.OUTPUT_FILE || 'events.json' }}
+            ${{ env.NOFPO_OUTPUT_FILE || 'events-nofpo.json' }}
 
       - name: Handle success/failure streak
         if: always()
