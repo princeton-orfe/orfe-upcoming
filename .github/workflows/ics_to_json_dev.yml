@@ -25,8 +25,8 @@ permissions:
 
 jobs:
   build-and-publish-dev:
-    # Ensure this only runs on the dev-asset branch
-    if: github.ref == 'refs/heads/dev-asset'
+    # Allow execution on dev-asset or series-filter branches
+    if: github.ref == 'refs/heads/dev-asset' || github.ref == 'refs/heads/series-filter'
     runs-on: ubuntu-latest
     env:
       ICS_URL: ${{ vars.ICS_URL }}
