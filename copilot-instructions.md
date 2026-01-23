@@ -26,6 +26,7 @@
 
 ## Configuration & Environment
 - Core env vars: `ICS_URL`, `OUTPUT_FILE`, `REPO_VARIABLE`, `TARGET_TZ`.
+- Filtering: `EXCLUDE_SERIES` (comma-separated string or JSON array) removes events whose transformed `series` matches; CLI flag `--exclude-series` mirrors the env and can be repeated.
 - Enrichment toggles: `ENRICH_TITLES`, `ENRICH_OVERWRITE`, `ENRICH_CONTENT`, `ENRICH_CONTENT_OVERWRITE`, `ENRICH_RAW_DETAILS`, `ENRICH_RAW_DETAILS_OVERWRITE`, `ENRICH_RAW_EXTRACTS`, `ENRICH_RAW_EXTRACTS_OVERWRITE`, `ENRICH_CONTENT_FORMAT`, `ENRICH_DEBUG`, `BOT_BYPASS_HEADER_VALUE`.
 - Title fallback prefix via `FALLBACK_PREPEND_TEXT` (supports `{series}` etc., ignored when >=128 chars).
 - CLI flags mirror env vars; prefer adding switches in `_parse_args` and associated env helpers together.
