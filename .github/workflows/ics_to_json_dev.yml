@@ -43,7 +43,7 @@ jobs:
       
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Load failure streak
         id: load_streak
@@ -125,7 +125,7 @@ jobs:
 
       - name: Upload JSON artifact (Dev)
         if: steps.check_change.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: events-json-dev
           path: |
