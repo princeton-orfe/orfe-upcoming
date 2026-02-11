@@ -78,7 +78,13 @@ jobs:
           fi
           echo "hash=$new_hash" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Python, install, and test
+      - name: Set up Python
+        if: steps.check_change.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies and test
         if: steps.check_change.outputs.skip != 'true'
         run: |
           pip install -r requirements.txt
