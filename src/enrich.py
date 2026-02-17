@@ -519,13 +519,16 @@ def enrichment_overwrite_enabled(cli_flag: bool) -> bool:
     return os.getenv("ENRICH_OVERWRITE", "0") in {"1", "true", "yes", "on"}
 
 
-def fill_title_fallback(events: List[Dict], overwrite: bool = False) -> int:
-    """Fill missing/TBD titles from the speaker field.
+def fill_title_fallback(events: List[Dict], overwrite: bool = False, include_speaker: bool = True) -> int:
+    """Fill missing/TBD titles using FALLBACK_PREPEND_TEXT and optionally the speaker field.
 
     Behavior:
     - Treats title values that are empty/whitespace or case-insensitive 'TBD' as missing.
     - When `overwrite` is False (default), only fills when missing as defined above.
-    - When `overwrite` is True, replaces any existing title with the speaker value.
+    - When `overwrite` is True, replaces any existing title with the generated value.
+    - When `include_speaker` is True (default), appends speaker to the prefix template.
+    - When `include_speaker` is False, uses only the rendered FALLBACK_PREPEND_TEXT
+      (e.g., "A {series} Talk" without the speaker name).
 
     Returns the number of events whose title was set.
     """
@@ -549,28 +552,49 @@ def fill_title_fallback(events: List[Dict], overwrite: bool = False) -> int:
 
     count = 0
     for ev in events:
-        speaker = ev.get("speaker")
-        if not speaker:
-            continue
         existing = ev.get("title")
-        if overwrite or _is_missing(existing):
-            # Render prefix template with event fields (e.g., {series}) and
-            # collapse whitespace so blanks (like empty series) don't leave doubles.
-            prefix_rendered = ""
-            if raw_prefix_tmpl:
-                try:
-                    prefix_rendered = raw_prefix_tmpl.format_map(_SafeDict(ev))
-                except Exception:
-                    # On formatting error, fall back to raw literal
-                    prefix_rendered = raw_prefix_tmpl
-                prefix_rendered = " ".join(prefix_rendered.split())
-            use_prefix = bool(prefix_rendered) and len(prefix_rendered) < MAX_PREFIX_LEN
+        if not (overwrite or _is_missing(existing)):
+            continue
+
+        # Render prefix template with event fields (e.g., {series}) and
+        # collapse whitespace so blanks (like empty series) don't leave doubles.
+        prefix_rendered = ""
+        if raw_prefix_tmpl:
+            try:
+                prefix_rendered = raw_prefix_tmpl.format_map(_SafeDict(ev))
+            except Exception:
+                # On formatting error, fall back to raw literal
+                prefix_rendered = raw_prefix_tmpl
+            prefix_rendered = " ".join(prefix_rendered.split())
+
+        if include_speaker:
+            speaker = ev.get("speaker")
+            if not speaker:
+                continue
             speaker_str = str(speaker)
+            use_prefix = bool(prefix_rendered) and len(prefix_rendered) < MAX_PREFIX_LEN
             ev["title"] = (
                 f"{prefix_rendered} {speaker_str}" if use_prefix else speaker_str
             )
             count += 1
+        else:
+            # Without speaker, only set title if we have a non-empty prefix
+            if prefix_rendered and len(prefix_rendered) < MAX_PREFIX_LEN:
+                ev["title"] = prefix_rendered
+                count += 1
     return count
+
+
+def fallback_include_speaker_enabled(cli_flag: bool | None = None) -> bool:
+    """Check if fallback titles should include the speaker name.
+
+    Default is True (include speaker) for backwards compatibility.
+    Set FALLBACK_INCLUDE_SPEAKER=0 or --no-fallback-speaker to disable.
+    """
+    if cli_flag is not None:
+        return cli_flag
+    val = os.getenv("FALLBACK_INCLUDE_SPEAKER", "1")
+    return val.lower() in {"1", "true", "yes", "on"}
 
 
 def enrichment_content_enabled(cli_flag: bool) -> bool:
