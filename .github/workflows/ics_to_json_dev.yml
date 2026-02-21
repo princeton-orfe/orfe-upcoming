@@ -33,6 +33,7 @@ jobs:
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
       NOFPO_OUTPUT_FILE: events-nofpo.json
+      FALLBACK_INCLUDE_SPEAKER: ${{ vars.FALLBACK_INCLUDE_SPEAKER }}
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       # Set flags based on inputs declaratively

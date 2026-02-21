@@ -30,6 +30,7 @@ jobs:
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
       FALLBACK_PREPEND_TEXT: ${{ vars.FALLBACK_PREPEND_TEXT }}
+      FALLBACK_INCLUDE_SPEAKER: ${{ vars.FALLBACK_INCLUDE_SPEAKER }}
       EXCLUDE_SERIES: ${{ vars.EXCLUDE_SERIES }}
       FORCE_REBUILD: ${{ github.event.inputs.force }}
       # Logic for enrichment flag: always on for schedule, respects input for dispatch
