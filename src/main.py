@@ -22,6 +22,7 @@ from .enrich import (
     enrichment_enabled,
     enrichment_overwrite_enabled,
     fill_title_fallback,
+    fallback_include_speaker_enabled,
     enrich_content,
     enrichment_content_enabled,
     enrichment_content_overwrite_enabled,
@@ -238,6 +239,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         help="Extract abstract and bio from rawEventDetails into separate fields (requires raw details enrichment)",
     )
     p.add_argument(
+        "--no-fallback-speaker",
+        action="store_true",
+        help="Don't include speaker name in fallback titles; use only FALLBACK_PREPEND_TEXT template (env FALLBACK_INCLUDE_SPEAKER=0)",
+    )
+    p.add_argument(
         "--exclude-series",
         action="append",
         default=None,
@@ -278,10 +284,16 @@ def main(argv: list[str] | None = None) -> int:
             f"errors={stats.errors} overwrite={'true' if overwrite else 'false'}"
         )
         # Post-process fallback: ensure no blank or 'TBD' titles remain.
-        # Fill from speaker for any events still missing a meaningful title.
-        filled = fill_title_fallback(data, overwrite=False)
+        # Fill from FALLBACK_PREPEND_TEXT template, optionally with speaker.
+        # Only pass cli_flag when --no-fallback-speaker is explicitly used
+        cli_no_speaker = getattr(ns, 'no_fallback_speaker', False)
+        include_speaker = fallback_include_speaker_enabled(
+            cli_flag=False if cli_no_speaker else None
+        )
+        filled = fill_title_fallback(data, overwrite=False, include_speaker=include_speaker)
         if filled:
-            print(f"Fallback populated {filled} titles from speaker field")
+            source = "speaker field" if include_speaker else "template"
+            print(f"Fallback populated {filled} titles from {source}")
 
     # Optional content enrichment (independent of title enrichment)
     do_content_enrich = enrichment_content_enabled(ns.enrich_content)

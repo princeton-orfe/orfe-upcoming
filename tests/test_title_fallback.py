@@ -1,5 +1,5 @@
 import os
-from src.enrich import fill_title_fallback
+from src.enrich import fill_title_fallback, fallback_include_speaker_enabled
 
 
 def test_fill_title_fallback_blank_and_tbd(monkeypatch):
@@ -56,3 +56,64 @@ def test_fill_title_fallback_with_series_placeholder(monkeypatch):
     # For missing/blank series, ensure we don't get double spaces
     assert events[1]["title"] == "A Talk by Bob"
     assert events[2]["title"] == "A Talk by Carol"
+
+
+def test_fill_title_fallback_without_speaker(monkeypatch):
+    """When include_speaker=False, use only the template without speaker name."""
+    monkeypatch.setenv("FALLBACK_PREPEND_TEXT", "A {series} Talk")
+    events = [
+        {"guid": "1", "speaker": "Alice", "title": "", "series": "Optimization Seminar"},
+        {"guid": "2", "speaker": "Bob", "title": "", "series": "Statistics"},
+        {"guid": "3", "speaker": "Carol", "title": "Existing"},
+    ]
+    filled = fill_title_fallback(events, overwrite=False, include_speaker=False)
+    assert filled == 2
+    assert events[0]["title"] == "A Optimization Seminar Talk"
+    assert events[1]["title"] == "A Statistics Talk"
+    assert events[2]["title"] == "Existing"
+
+
+def test_fill_title_fallback_without_speaker_no_template(monkeypatch):
+    """When include_speaker=False and no template, nothing should be filled."""
+    monkeypatch.delenv("FALLBACK_PREPEND_TEXT", raising=False)
+    events = [
+        {"guid": "1", "speaker": "Alice", "title": ""},
+    ]
+    filled = fill_title_fallback(events, overwrite=False, include_speaker=False)
+    assert filled == 0
+    assert events[0]["title"] == ""
+
+
+def test_fill_title_fallback_without_speaker_missing_series(monkeypatch):
+    """When include_speaker=False and series is missing, collapse spaces properly."""
+    monkeypatch.setenv("FALLBACK_PREPEND_TEXT", "A {series} Talk")
+    events = [
+        {"guid": "1", "speaker": "Alice", "title": ""},  # no series key
+        {"guid": "2", "speaker": "Bob", "title": "", "series": ""},
+    ]
+    filled = fill_title_fallback(events, overwrite=False, include_speaker=False)
+    assert filled == 2
+    assert events[0]["title"] == "A Talk"
+    assert events[1]["title"] == "A Talk"
+
+
+def test_fallback_include_speaker_enabled_default(monkeypatch):
+    """Default should be True (include speaker)."""
+    monkeypatch.delenv("FALLBACK_INCLUDE_SPEAKER", raising=False)
+    assert fallback_include_speaker_enabled() is True
+
+
+def test_fallback_include_speaker_enabled_env_false(monkeypatch):
+    """FALLBACK_INCLUDE_SPEAKER=0 should return False."""
+    monkeypatch.setenv("FALLBACK_INCLUDE_SPEAKER", "0")
+    assert fallback_include_speaker_enabled() is False
+
+
+def test_fallback_include_speaker_enabled_cli_override(monkeypatch):
+    """CLI flag should override env var."""
+    monkeypatch.setenv("FALLBACK_INCLUDE_SPEAKER", "1")
+    # CLI says no speaker
+    assert fallback_include_speaker_enabled(cli_flag=False) is False
+    # CLI says include speaker
+    monkeypatch.setenv("FALLBACK_INCLUDE_SPEAKER", "0")
+    assert fallback_include_speaker_enabled(cli_flag=True) is True
