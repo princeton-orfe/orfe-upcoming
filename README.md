@@ -122,3 +122,5 @@ CLI flags mirror the envs: `--enrich-titles`, `--enrich-overwrite`, `--enrich-co
 `--exclude-series` accepts comma-separated names and can be repeated; it mirrors `EXCLUDE_SERIES`.
 `--no-fallback-speaker` disables including speaker in fallback titles; mirrors `FALLBACK_INCLUDE_SPEAKER=0`.
 
+`FALLBACK_PREPEND_TEXT` supports two placeholders: `{series}` inserts the event series name, and `{a_an}` auto-selects "A" or "An" based on whether the next word starts with a vowel (e.g., `{a_an} {series} Talk by` → "An ORFE Colloquium Talk by Alice").
+
