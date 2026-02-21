@@ -542,9 +542,27 @@ def fill_title_fallback(events: List[Dict], overwrite: bool = False, include_spe
 
     # Optional prefix for titles derived from speaker. Supports basic placeholders
     # like {series} sourced from the event dict. Missing keys render as empty string.
+    # Special placeholder {a_an} auto-selects "A" or "An" based on next word.
     class _SafeDict(dict):
         def __missing__(self, key):  # noqa: D401
             return ""
+
+    _A_AN_MARKER = "\x00A_AN\x00"
+
+    def _resolve_a_an(text: str) -> str:
+        """Replace {a_an} markers with 'A' or 'An' based on the following word."""
+        import re
+        def _replace(m: re.Match) -> str:
+            rest = text[m.end():]
+            # Find the next word character
+            next_match = re.match(r"\s*(\w)", rest)
+            if next_match:
+                first_char = next_match.group(1).lower()
+                # Use "An" for vowel sounds (simplified: just vowel letters)
+                if first_char in "aeiou":
+                    return "An"
+            return "A"
+        return re.sub(re.escape(_A_AN_MARKER), _replace, text)
 
     MAX_PREFIX_LEN = 128  # increased from 64 to allow richer templates
     raw_prefix_tmpl = os.getenv("FALLBACK_PREPEND_TEXT", "")
@@ -558,14 +576,19 @@ def fill_title_fallback(events: List[Dict], overwrite: bool = False, include_spe
 
         # Render prefix template with event fields (e.g., {series}) and
         # collapse whitespace so blanks (like empty series) don't leave doubles.
+        # Handle {a_an} placeholder specially for A/An selection.
         prefix_rendered = ""
         if raw_prefix_tmpl:
+            # Preserve {a_an} by replacing with marker before format_map
+            tmpl = raw_prefix_tmpl.replace("{a_an}", _A_AN_MARKER)
             try:
-                prefix_rendered = raw_prefix_tmpl.format_map(_SafeDict(ev))
+                prefix_rendered = tmpl.format_map(_SafeDict(ev))
             except Exception:
                 # On formatting error, fall back to raw literal
-                prefix_rendered = raw_prefix_tmpl
+                prefix_rendered = tmpl
             prefix_rendered = " ".join(prefix_rendered.split())
+            # Resolve A/An based on next word
+            prefix_rendered = _resolve_a_an(prefix_rendered)
 
         if include_speaker:
             speaker = ev.get("speaker")

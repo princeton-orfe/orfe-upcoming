@@ -87,7 +87,7 @@ These environment variables and workflow inputs control behavior at runtime.
 | `ENRICH_TITLES` | CLI/CI | bool | `false` (manual CLI), `true` (scheduled CI, manual workflow default) | Enable subtitle scraping to populate `title` from each event detail page. |
 | `ENRICH_OVERWRITE` | CLI/CI | bool | `false` | When enriching, overwrite non-empty `title` values instead of only filling blanks. |
 | `ENRICH_DEBUG` | CLI/CI | bool | `false` | Verbose enrichment logging (fetch/skip/overwrite decisions). |
-| `FALLBACK_PREPEND_TEXT` | CLI/CI | string | — | Prefix template for titles filled from `speaker`. Supports `{series}` placeholder; missing keys render empty and whitespace is collapsed. Max length: 128 chars. Example: `A {series} Talk by` → `A Optimization Seminar Talk by Alice`. |
+| `FALLBACK_PREPEND_TEXT` | CLI/CI | string | — | Prefix template for titles filled from `speaker`. Supports `{series}` placeholder and `{a_an}` for automatic A/An selection based on the next word; missing keys render empty and whitespace is collapsed. Max length: 128 chars. Example: `{a_an} {series} Talk by` → `An ORFE Colloquium Talk by Alice`. |
 | `FALLBACK_INCLUDE_SPEAKER` | CLI/CI | bool | `true` | Include speaker name in fallback titles. Set to `0` to use only `FALLBACK_PREPEND_TEXT` template (e.g., `A {series} Talk` without speaker). CLI: `--no-fallback-speaker`. |
 | `BOT_BYPASS_HEADER_VALUE` | CLI/CI | string | `1` | Value sent as `x-wdsoit-bot-bypass` header during enrichment requests. |
 | `ENRICH_CONTENT` | CLI/CI | bool | `false` | Enable content scraping from the event page into `content` (fallback stays as ICS `DESCRIPTION` if not overwritten). |

@@ -58,6 +58,37 @@ def test_fill_title_fallback_with_series_placeholder(monkeypatch):
     assert events[2]["title"] == "A Talk by Carol"
 
 
+def test_fill_title_fallback_with_a_an_placeholder(monkeypatch):
+    """The {a_an} placeholder should auto-select 'A' or 'An' based on next word."""
+    monkeypatch.setenv("FALLBACK_PREPEND_TEXT", "{a_an} {series} Talk by")
+    events = [
+        {"guid": "1", "speaker": "Alice", "title": "", "series": "Optimization Seminar"},
+        {"guid": "2", "speaker": "Bob", "title": "", "series": "ORFE Colloquium"},
+        {"guid": "3", "speaker": "Carol", "title": "", "series": "Analysis Seminar"},
+        {"guid": "4", "speaker": "Dave", "title": "", "series": ""},  # empty series
+    ]
+    filled = fill_title_fallback(events, overwrite=False)
+    assert filled == 4
+    assert events[0]["title"] == "An Optimization Seminar Talk by Alice"
+    assert events[1]["title"] == "An ORFE Colloquium Talk by Bob"
+    assert events[2]["title"] == "An Analysis Seminar Talk by Carol"
+    # Empty series: {a_an} followed by "Talk" -> "A Talk"
+    assert events[3]["title"] == "A Talk by Dave"
+
+
+def test_fill_title_fallback_with_a_an_no_speaker(monkeypatch):
+    """The {a_an} placeholder works with include_speaker=False."""
+    monkeypatch.setenv("FALLBACK_PREPEND_TEXT", "{a_an} {series} Talk by")
+    events = [
+        {"guid": "1", "speaker": "Alice", "title": "", "series": "ORFE Colloquium"},
+        {"guid": "2", "speaker": "Bob", "title": "", "series": "Statistics Seminar"},
+    ]
+    filled = fill_title_fallback(events, overwrite=False, include_speaker=False)
+    assert filled == 2
+    assert events[0]["title"] == "An ORFE Colloquium Talk"
+    assert events[1]["title"] == "A Statistics Seminar Talk"
+
+
 def test_fill_title_fallback_without_speaker(monkeypatch):
     """When include_speaker=False, use only the template without speaker name."""
     monkeypatch.setenv("FALLBACK_PREPEND_TEXT", "A {series} Talk")
