@@ -578,9 +578,13 @@ def fill_title_fallback(events: List[Dict], overwrite: bool = False, include_spe
             )
             count += 1
         else:
-            # Without speaker, only set title if we have a non-empty prefix
+            # Without speaker, only set title if we have a non-empty prefix.
+            # Strip trailing "by" (case-insensitive) since speaker won't follow.
             if prefix_rendered and len(prefix_rendered) < MAX_PREFIX_LEN:
-                ev["title"] = prefix_rendered
+                title = prefix_rendered.rstrip()
+                if title.lower().endswith(" by"):
+                    title = title[:-3].rstrip()
+                ev["title"] = title
                 count += 1
     return count
 

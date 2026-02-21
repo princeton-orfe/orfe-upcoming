@@ -97,6 +97,19 @@ def test_fill_title_fallback_without_speaker_missing_series(monkeypatch):
     assert events[1]["title"] == "A Talk"
 
 
+def test_fill_title_fallback_without_speaker_strips_trailing_by(monkeypatch):
+    """When include_speaker=False and template ends with 'by', strip it."""
+    monkeypatch.setenv("FALLBACK_PREPEND_TEXT", "A {series} Talk by")
+    events = [
+        {"guid": "1", "speaker": "Alice", "title": "", "series": "Optimization Seminar"},
+        {"guid": "2", "speaker": "Bob", "title": "", "series": ""},
+    ]
+    filled = fill_title_fallback(events, overwrite=False, include_speaker=False)
+    assert filled == 2
+    assert events[0]["title"] == "A Optimization Seminar Talk"
+    assert events[1]["title"] == "A Talk"
+
+
 def test_fallback_include_speaker_enabled_default(monkeypatch):
     """Default should be True (include speaker)."""
     monkeypatch.delenv("FALLBACK_INCLUDE_SPEAKER", raising=False)
