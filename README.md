@@ -2,11 +2,11 @@
 
 Automated pipeline that fetches a department ICS feed, applies configurable transformation, and publishes a stable JSON file as a GitHub Release asset.
 
-Canonical development now happens in `pu-orfe/upcoming`. During the migration window, release assets are mirrored back into `princeton-orfe/orfe-upcoming` so existing consumers can keep using the legacy stable URLs.
+Canonical development now happens in `pu-orfe/upcoming`. During the migration window, release assets are mirrored back into `princeton-orfe/orfe-upcoming` so existing consumers can keep using the legacy stable URLs. The old app/Azure dispatcher is no longer required; production refreshes now run on a native GitHub Actions schedule.
 
 ## Features
 
-* Hourly + manual workflow (cron + `workflow_dispatch`)
+* Every-30-minutes + manual workflow (cron + `workflow_dispatch`)
 * ICS fetching with SHA256 change detection
 * Configurable field mapping and transformation
 * Title enrichment from event pages
@@ -22,7 +22,7 @@ Canonical development now happens in `pu-orfe/upcoming`. During the migration wi
 
 **Production** (`latest`): `https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json`
 - Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
-- Triggers: Scheduled (hourly via cron), manual
+- Triggers: Scheduled (every 30 minutes via native GitHub Actions cron), manual
 - Purpose: Stable production feed
 
 **Development** (`dev`): `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
