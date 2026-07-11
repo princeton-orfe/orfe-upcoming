@@ -37,5 +37,5 @@ jobs:
           set -euo pipefail
           cd repo.git
           git remote add legacy "https://x-access-token:${TARGET_TOKEN}@github.com/${LEGACY_REPOSITORY}.git"
-          git push --prune legacy 'refs/heads/*:refs/heads/*'
-          git push --prune legacy 'refs/tags/*:refs/tags/*'
+          git push --force --prune legacy 'refs/heads/*:refs/heads/*'
+          git push --force --prune legacy 'refs/tags/*:refs/tags/*'
