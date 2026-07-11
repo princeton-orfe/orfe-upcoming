@@ -1,8 +1,9 @@
-# Copilot Instructions for `orfe-upcoming`
+# Copilot Instructions for `upcoming`
 
 ## Project Purpose
 - Generate a normalized JSON events feed (`events.json`) from an upstream ICS calendar, with optional web-scraping enrichment for titles, content, and raw details.
 - Intended for automation (GitHub Actions) and manual CLI use; schema compliance enforced via `schema/events.schema.json`.
+- Canonical development happens in `pu-orfe/upcoming`; release assets are mirrored into `princeton-orfe/orfe-upcoming` while legacy consumers migrate.
 
 ## Architecture Overview
 - `src/main.py`: CLI entry point. Fetches ICS (`fetch_ics`), instantiates `ics.Calendar`, calls `transform_calendar`, and writes JSON. Handles optional enrichment based on CLI flags/env vars.

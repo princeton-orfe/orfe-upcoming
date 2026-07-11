@@ -2,9 +2,11 @@
 
 Automated pipeline that fetches a department ICS feed, applies configurable transformation, and publishes a stable JSON file as a GitHub Release asset.
 
+Canonical development now happens in `pu-orfe/upcoming`. During the migration window, release assets are mirrored back into `princeton-orfe/orfe-upcoming` so existing consumers can keep using the legacy stable URLs.
+
 ## Features
 
-* Hourly + manual workflow (cron + `workflow_dispatch` + [orfe-upcoming-dispatcher](https://github.com/organizations/princeton-orfe/settings/apps/orfe-upcoming-dispatcher))
+* Hourly + manual workflow (cron + `workflow_dispatch`)
 * ICS fetching with SHA256 change detection
 * Configurable field mapping and transformation
 * Title enrichment from event pages
@@ -19,10 +21,12 @@ Automated pipeline that fetches a department ICS feed, applies configurable tran
 ### Release Assets
 
 **Production** (`latest`): `https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json`
-- Triggers: Scheduled (hourly via cron + [orfe-upcoming-dispatcher](https://github.com/organizations/princeton-orfe/settings/apps/orfe-upcoming-dispatcher)), manual
+- Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
+- Triggers: Scheduled (hourly via cron), manual
 - Purpose: Stable production feed
 
 **Development** (`dev`): `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
+- Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
 - Triggers: Manual (workflow_dispatch on dev-asset branch)
 - Purpose: Testing environment
 
@@ -123,4 +127,3 @@ CLI flags mirror the envs: `--enrich-titles`, `--enrich-overwrite`, `--enrich-co
 `--no-fallback-speaker` disables including speaker in fallback titles; mirrors `FALLBACK_INCLUDE_SPEAKER=0`.
 
 `FALLBACK_PREPEND_TEXT` supports two placeholders: `{series}` inserts the event series name, and `{a_an}` auto-selects "A" or "An" based on whether the next word starts with a vowel (e.g., `{a_an} {series} Talk by` → "An ORFE Colloquium Talk by Alice").
-

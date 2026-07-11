@@ -29,6 +29,7 @@ jobs:
     if: github.ref == 'refs/heads/dev-asset' || github.ref == 'refs/heads/series-filter'
     runs-on: ubuntu-latest
     env:
+      LEGACY_REPOSITORY: princeton-orfe/orfe-upcoming
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
@@ -111,10 +112,11 @@ jobs:
         run: |
           python tools/validate_json.py --schema schema/events.schema.json --data "${NOFPO_OUTPUT_FILE:-events-nofpo.json}"
 
-      - name: Publish "dev" release
+      - name: Publish "dev" releases
         if: steps.check_change.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_GITHUB_TOKEN: ${{ secrets.LEGACY_REPOSITORY_TOKEN }}
         run: |
           set -euo pipefail
           OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
@@ -126,9 +128,19 @@ jobs:
           # Overwrite existing 'dev' release
           gh release delete "$TAG" -y 2>/dev/null || true
           gh release create "$TAG" "$OUTPUT_ASSET" "$OUTPUT_NOFPO" --title "$TITLE" --notes "$BODY"
-          
-          echo "Dev asset URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/dev/${OUTPUT_ASSET}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Dev asset (no FPO) URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/dev/${OUTPUT_NOFPO}" >> "$GITHUB_STEP_SUMMARY"
+          python -m src.mirror_release \
+            --target-repo "${LEGACY_REPOSITORY}" \
+            --target-commitish "${GITHUB_REF_NAME}" \
+            --tag "$TAG" \
+            --title "$TITLE" \
+            --notes "$BODY" \
+            --asset "$OUTPUT_ASSET" \
+            --asset "$OUTPUT_NOFPO"
+
+          echo "Canonical dev asset URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/dev/${OUTPUT_ASSET}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Canonical dev asset (no FPO) URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/dev/${OUTPUT_NOFPO}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Legacy mirrored dev asset URL: https://github.com/${LEGACY_REPOSITORY}/releases/download/dev/${OUTPUT_ASSET}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Legacy mirrored dev asset (no FPO) URL: https://github.com/${LEGACY_REPOSITORY}/releases/download/dev/${OUTPUT_NOFPO}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JSON artifact (Dev)
         if: steps.check_change.outputs.skip != 'true'
