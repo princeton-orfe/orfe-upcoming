@@ -2,11 +2,12 @@
 
 Automated pipeline that fetches a department ICS feed, applies configurable transformation, and publishes a stable JSON file as a GitHub Release asset.
 
-Canonical development now happens in `pu-orfe/upcoming`. During the migration window, release assets are mirrored back into `princeton-orfe/orfe-upcoming` so existing consumers can keep using the legacy stable URLs. The old app/Azure dispatcher is no longer required; production refreshes now run on a native GitHub Actions schedule.
+Canonical development now happens in `pu-orfe/upcoming`. During the migration window, release assets are mirrored back into `princeton-orfe/orfe-upcoming` so existing consumers can keep using the legacy stable URLs. The old app/Azure dispatcher is no longer required; production refreshes now run on a native GitHub Actions schedule, and a small heartbeat workflow keeps the public repo's schedules from aging out.
 
 ## Features
 
 * Every-30-minutes + manual workflow (cron + `workflow_dispatch`)
+* Daily heartbeat check that writes a tiny keepalive commit only after 35 days without a `main` branch commit
 * ICS fetching with SHA256 change detection
 * Configurable field mapping and transformation
 * Title enrichment from event pages
@@ -20,12 +21,16 @@ Canonical development now happens in `pu-orfe/upcoming`. During the migration wi
 
 ### Release Assets
 
-**Production** (`latest`): `https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json`
+**Production** (`latest`)
+- Canonical public URL: `https://github.com/pu-orfe/upcoming/releases/latest/download/events.json`
+- Legacy mirror URL: `https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json`
 - Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
 - Triggers: Scheduled (every 30 minutes via native GitHub Actions cron), manual
 - Purpose: Stable production feed
 
-**Development** (`dev`): `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
+**Development** (`dev`)
+- Canonical public URL: `https://github.com/pu-orfe/upcoming/releases/download/dev/events.json`
+- Legacy mirror URL: `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
 - Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
 - Triggers: Manual (workflow_dispatch on dev-asset branch)
 - Purpose: Testing environment

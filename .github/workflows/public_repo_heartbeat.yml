@@ -1,0 +1,48 @@
+name: Public repo heartbeat
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: public-repo-heartbeat
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Decide whether heartbeat is needed
+        id: heartbeat
+        run: |
+          set -euo pipefail
+          last_commit_epoch=$(git log -1 --format=%ct HEAD)
+          python -m src.heartbeat \
+            --last-commit-epoch "$last_commit_epoch" \
+            --threshold-days 35 \
+            --ref-name "${GITHUB_REF_NAME}" \
+            --source-sha "${GITHUB_SHA}" \
+            --output .ci/heartbeat.json
+
+      - name: Commit heartbeat
+        if: steps.heartbeat.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .ci/heartbeat.json
+          git commit -m "chore(ci): heartbeat keepalive"
+          git push origin HEAD:${GITHUB_REF_NAME}

@@ -4,7 +4,7 @@
 - Generate a normalized JSON events feed (`events.json`) from an upstream ICS calendar, with optional web-scraping enrichment for titles, content, and raw details.
 - Intended for automation (GitHub Actions) and manual CLI use; schema compliance enforced via `schema/events.schema.json`.
 - Canonical development happens in `pu-orfe/upcoming`; release assets are mirrored into `princeton-orfe/orfe-upcoming` while legacy consumers migrate.
-- Production refreshes run on a native every-30-minutes GitHub Actions schedule; the old app/Azure dispatcher path is being retired.
+- `pu-orfe/upcoming` is public so its release assets are directly shareable. Production refreshes run on a native every-30-minutes GitHub Actions schedule, and a heartbeat workflow creates a tiny keepalive commit after 35 idle days so public-repo schedules do not age out.
 
 ## Architecture Overview
 - `src/main.py`: CLI entry point. Fetches ICS (`fetch_ics`), instantiates `ics.Calendar`, calls `transform_calendar`, and writes JSON. Handles optional enrichment based on CLI flags/env vars.
