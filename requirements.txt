@@ -1,6 +1,6 @@
 requests
 ics
-tatsu>=4.2,<5.16  # ics 0.7.3 requires <5.16.0; 5.17.0 also shipped with a broken rich dependency
+tatsu>=5.15.1,<5.16  # ics 0.7.3 requires <5.16.0; 5.17.0 also shipped with a broken rich dependency
 pytest
 arrow
 beautifulsoup4
