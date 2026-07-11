@@ -19,14 +19,19 @@ on:
 permissions:
   contents: write
   issues: write
+  pages: write
+  id-token: write
 
 jobs:
   build-and-publish:
     # Ensure this only runs on the main branch
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      skip_generation: ${{ steps.check_change.outputs.skip }}
     env:
       LEGACY_REPOSITORY: princeton-orfe/orfe-upcoming
+      PAGES_CNAME: upcoming.orfe.princeton.edu
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
@@ -99,6 +104,10 @@ jobs:
         run: |
           python tools/validate_json.py --schema schema/events.schema.json --data "${OUTPUT_FILE:-events.json}"
 
+      - name: Configure GitHub Pages
+        if: steps.check_change.outputs.skip != 'true'
+        uses: actions/configure-pages@v5
+
       - name: Publish "latest" releases
         if: steps.check_change.outputs.skip != 'true'
         env:
@@ -126,6 +135,22 @@ jobs:
           echo "Canonical asset URL: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${OUTPUT_ASSET}" >> "$GITHUB_STEP_SUMMARY"
           echo "Legacy mirrored asset URL: https://github.com/${LEGACY_REPOSITORY}/releases/download/${TAG}/${OUTPUT_ASSET}" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Prepare Pages artifact
+        if: steps.check_change.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
+          mkdir -p pages
+          cp "$OUTPUT_ASSET" pages/events.json
+          printf '%s\n' "${PAGES_CNAME}" > pages/CNAME
+          touch pages/.nojekyll
+
+      - name: Upload Pages artifact
+        if: steps.check_change.outputs.skip != 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
       - name: Upload JSON artifact
         if: steps.check_change.outputs.skip != 'true'
         uses: actions/upload-artifact@v6
@@ -140,3 +165,15 @@ jobs:
           job-status: ${{ job.status }}
           streak-file: .ci/failure-streak
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-pages:
+    needs: build-and-publish
+    if: needs.build-and-publish.result == 'success' && needs.build-and-publish.outputs.skip_generation != 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

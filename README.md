@@ -2,12 +2,13 @@
 
 Automated pipeline that fetches a department ICS feed, applies configurable transformation, and publishes a stable JSON file as a GitHub Release asset.
 
-Canonical development now happens in `pu-orfe/upcoming`. During the migration window, release assets are mirrored back into `princeton-orfe/orfe-upcoming` so existing consumers can keep using the legacy stable URLs. The old app/Azure dispatcher is no longer required; production refreshes now run on a native GitHub Actions schedule, and a small heartbeat workflow keeps the public repo's schedules from aging out.
+Canonical development now happens in `pu-orfe/upcoming`. During the migration window, release assets are mirrored back into `princeton-orfe/orfe-upcoming` so existing consumers can keep using the legacy stable URLs. The old app/Azure dispatcher is no longer required; production refreshes now run on a native GitHub Actions schedule, a small heartbeat workflow keeps the public repo's schedules from aging out, and the latest production payload is also deployed to GitHub Pages for `upcoming.orfe.princeton.edu`.
 
 ## Features
 
 * Every-30-minutes + manual workflow (cron + `workflow_dispatch`)
 * Daily heartbeat check that writes a tiny keepalive commit only after 35 days without a `main` branch commit
+* GitHub Pages deployment of the latest production `events.json` for `https://upcoming.orfe.princeton.edu/events.json`
 * ICS fetching with SHA256 change detection
 * Configurable field mapping and transformation
 * Title enrichment from event pages
@@ -23,6 +24,7 @@ Canonical development now happens in `pu-orfe/upcoming`. During the migration wi
 
 **Production** (`latest`)
 - Canonical public URL: `https://github.com/pu-orfe/upcoming/releases/download/latest/events.json`
+- Custom-domain URL: `https://upcoming.orfe.princeton.edu/events.json`
 - Legacy mirror URL: `https://github.com/princeton-orfe/orfe-upcoming/releases/download/latest/events.json`
 - Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
 - Triggers: Scheduled (every 30 minutes via native GitHub Actions cron), manual
