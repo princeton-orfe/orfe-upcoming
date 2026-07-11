@@ -6,6 +6,10 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    ignore:
+      - dependency-name: "tatsu"
+        versions:
+          - ">= 5.16.0"
     commit-message:
       prefix: "deps(pip)"
     labels:
