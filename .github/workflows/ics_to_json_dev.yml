@@ -25,8 +25,8 @@ permissions:
 
 jobs:
   build-and-publish-dev:
-    # Publish the development asset from the canonical main branch.
-    if: github.ref == 'refs/heads/main'
+    # Allow any development branch to overwrite the shared dev release on demand.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       LEGACY_REPOSITORY: princeton-orfe/orfe-upcoming
@@ -123,14 +123,16 @@ jobs:
           OUTPUT_NOFPO="${NOFPO_OUTPUT_FILE:-events-nofpo.json}"
           TAG="dev"
           TITLE="Development Events"
-          BODY="Development build of events feed. Includes filtered variant without FPO series. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
+          SOURCE_REF="${GITHUB_REF_NAME}"
+          SOURCE_SHA="${GITHUB_SHA}"
+          BODY="Development build of events feed from ${SOURCE_REF} (${SOURCE_SHA}). Includes filtered variant without FPO series. ICS_SHA256:${{ steps.check_change.outputs.hash }}"
 
           # Overwrite existing 'dev' release
           gh release delete "$TAG" -y 2>/dev/null || true
-          gh release create "$TAG" "$OUTPUT_ASSET" "$OUTPUT_NOFPO" --title "$TITLE" --notes "$BODY" --latest=false
+          gh release create "$TAG" "$OUTPUT_ASSET" "$OUTPUT_NOFPO" --title "$TITLE" --notes "$BODY" --latest=false --target "${SOURCE_SHA}"
           python -m src.mirror_release \
             --target-repo "${LEGACY_REPOSITORY}" \
-            --target-commitish "${GITHUB_REF_NAME}" \
+            --target-commitish main \
             --tag "$TAG" \
             --title "$TITLE" \
             --notes "$BODY" \
