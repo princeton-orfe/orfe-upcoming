@@ -127,7 +127,7 @@ jobs:
 
           # Overwrite existing 'dev' release
           gh release delete "$TAG" -y 2>/dev/null || true
-          gh release create "$TAG" "$OUTPUT_ASSET" "$OUTPUT_NOFPO" --title "$TITLE" --notes "$BODY"
+          gh release create "$TAG" "$OUTPUT_ASSET" "$OUTPUT_NOFPO" --title "$TITLE" --notes "$BODY" --latest=false
           python -m src.mirror_release \
             --target-repo "${LEGACY_REPOSITORY}" \
             --target-commitish "${GITHUB_REF_NAME}" \

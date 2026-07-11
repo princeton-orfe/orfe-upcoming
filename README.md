@@ -22,8 +22,8 @@ Canonical development now happens in `pu-orfe/upcoming`. During the migration wi
 ### Release Assets
 
 **Production** (`latest`)
-- Canonical public URL: `https://github.com/pu-orfe/upcoming/releases/latest/download/events.json`
-- Legacy mirror URL: `https://github.com/princeton-orfe/orfe-upcoming/releases/latest/download/events.json`
+- Canonical public URL: `https://github.com/pu-orfe/upcoming/releases/download/latest/events.json`
+- Legacy mirror URL: `https://github.com/princeton-orfe/orfe-upcoming/releases/download/latest/events.json`
 - Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
 - Triggers: Scheduled (every 30 minutes via native GitHub Actions cron), manual
 - Purpose: Stable production feed
