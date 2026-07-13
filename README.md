@@ -53,6 +53,22 @@ Canonical development now happens in `pu-orfe/upcoming`. During the migration wi
 - Contents: a static, realistic dummy feed based on the shape and style of previously served ORFE Upcoming assets
 - Intended use: remote ingest and downstream integration testing when the live production or development feeds are empty or otherwise unsuitable as test input
 
+### Landing pages
+
+The Pages site has two hand-written HTML pages:
+
+| Path | Serves | Edit this file |
+|------|--------|----------------|
+| `/` | `https://upcoming.orfe.princeton.edu/` | `site/index.html` |
+| `/dev/` | `https://upcoming.orfe.princeton.edu/dev/` | `site/dev/index.html` |
+
+How to ship a change:
+
+- **`site/index.html`** (production landing): merge to `main`, then dispatch **`Publish Landing Pages`**. This workflow only rebuilds the Pages artifact (no ICS fetch, no JSON regeneration) and reuses the current `latest`/`dev` release assets for the JSON endpoints. Restricted to `main`.
+- **`site/dev/index.html`** (dev landing): dispatch **`ICS to JSON (Development)`** from the branch with your edits, with `force: true`. The dev workflow now publishes `site/index.html` from the branch too, so you can preview both landing pages together.
+
+The Pages tree is assembled by the local composite action `actions/prepare-pages-artifact`, which all three workflows share.
+
 ### Local Development
 
 Generate JSON locally:
