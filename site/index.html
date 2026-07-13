@@ -28,15 +28,6 @@
     }
     a { color: var(--brand-dark); text-underline-offset: 0.15rem; }
     a:hover { color: var(--brand); }
-    .princeton-bar {
-      background: var(--ink-dark);
-      color: var(--white);
-      padding: 1rem 1.25rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      font-size: 0.86rem;
-    }
     .hero {
       background: linear-gradient(180deg, rgba(18,18,18,0.93), rgba(18,18,18,0.82)),
         radial-gradient(circle at top right, rgba(231,117,0,0.35), transparent 32%);
@@ -206,15 +197,11 @@
   </style>
 </head>
 <body>
-  <div class="princeton-bar">Princeton University · Operations Research and Financial Engineering</div>
   <header class="hero">
     <div class="container">
-      <p class="eyebrow">Paper Tiger–inspired feed landing page</p>
-      <h1>ORFE Upcoming published assets</h1>
+      <h1>ORFE Upcoming</h1>
       <p>
-        This site publishes the machine-readable ORFE Upcoming feed from GitHub Actions. Production and
-        development assets are available here for external consumers, integrations, and manual inspection.
-      </p>
+        This site republishes machine-readable <a href="https://orfe.princeton.edu/events">ORFE Upcoming Events</a> for ingest into campus services. Production and development assets are available here for external consumers, integrations, and manual inspection.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="./events.json">Open production feed</a>
         <a class="btn btn-secondary" href="./dev/">Browse development assets</a>
@@ -301,14 +288,5 @@
     </section>
   </main>
 
-  <footer>
-    <div class="container">
-      <p>
-        This landing page is a lightweight, Paper Tiger–inspired companion surface for the ORFE Upcoming feed.
-        It exists to explain the published JSON resources and give consumers stable URLs for production, development,
-        and test ingestion.
-      </p>
-    </div>
-  </footer>
 </body>
 </html>
