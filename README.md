@@ -32,6 +32,10 @@ Canonical development now happens in `pu-orfe/upcoming`. During the migration wi
 
 **Development** (`dev`)
 - Canonical public URL: `https://github.com/pu-orfe/upcoming/releases/download/dev/events.json`
+- Custom-domain landing page: `https://upcoming.orfe.princeton.edu/dev/`
+- Custom-domain asset URLs:
+  - `https://upcoming.orfe.princeton.edu/dev/events.json`
+  - `https://upcoming.orfe.princeton.edu/dev/events-nofpo.json`
 - Legacy mirror URL: `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
 - Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
 - Triggers: Manual (`workflow_dispatch` on the development branch you want to test)

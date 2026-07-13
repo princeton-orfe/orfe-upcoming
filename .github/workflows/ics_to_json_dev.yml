@@ -22,14 +22,20 @@ on:
 permissions:
   contents: write
   issues: write
+  pages: write
+  id-token: write
 
 jobs:
   build-and-publish-dev:
     # Allow any development branch to overwrite the shared dev release on demand.
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    outputs:
+      skip_generation: ${{ steps.check_change.outputs.skip }}
     env:
       LEGACY_REPOSITORY: princeton-orfe/orfe-upcoming
+      PAGES_CNAME: upcoming.orfe.princeton.edu
+      DEV_OUTPUT_DIR: pages/dev
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
@@ -112,6 +118,10 @@ jobs:
         run: |
           python tools/validate_json.py --schema schema/events.schema.json --data "${NOFPO_OUTPUT_FILE:-events-nofpo.json}"
 
+      - name: Configure GitHub Pages
+        if: steps.check_change.outputs.skip != 'true'
+        uses: actions/configure-pages@v6
+
       - name: Publish "dev" releases
         if: steps.check_change.outputs.skip != 'true'
         env:
@@ -144,6 +154,47 @@ jobs:
           echo "Legacy mirrored dev asset URL: https://github.com/${LEGACY_REPOSITORY}/releases/download/dev/${OUTPUT_ASSET}" >> "$GITHUB_STEP_SUMMARY"
           echo "Legacy mirrored dev asset (no FPO) URL: https://github.com/${LEGACY_REPOSITORY}/releases/download/dev/${OUTPUT_NOFPO}" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Prepare Pages artifact
+        if: steps.check_change.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
+          OUTPUT_NOFPO="${NOFPO_OUTPUT_FILE:-events-nofpo.json}"
+          mkdir -p pages "${DEV_OUTPUT_DIR}"
+          if gh release view latest >/dev/null 2>&1; then
+            gh release download latest --pattern 'events.json' --dir pages
+          else
+            cp "$OUTPUT_ASSET" pages/events.json
+          fi
+          cp "$OUTPUT_ASSET" "${DEV_OUTPUT_DIR}/events.json"
+          cp "$OUTPUT_NOFPO" "${DEV_OUTPUT_DIR}/events-nofpo.json"
+          cat > "${DEV_OUTPUT_DIR}/index.html" <<'EOF'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <title>Upcoming development assets</title>
+          </head>
+          <body>
+            <h1>Upcoming development assets</h1>
+            <ul>
+              <li><a href="./events.json">events.json</a></li>
+              <li><a href="./events-nofpo.json">events-nofpo.json</a></li>
+            </ul>
+          </body>
+          </html>
+          EOF
+          printf '%s\n' "${PAGES_CNAME}" > pages/CNAME
+          touch pages/.nojekyll
+
+      - name: Upload Pages artifact
+        if: steps.check_change.outputs.skip != 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: pages
+
       - name: Upload JSON artifact (Dev)
         if: steps.check_change.outputs.skip != 'true'
         uses: actions/upload-artifact@v6
@@ -160,3 +211,15 @@ jobs:
           job-status: ${{ job.status }}
           streak-file: .ci/failure-streak
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-pages:
+    needs: build-and-publish-dev
+    if: needs.build-and-publish-dev.result == 'success' && needs.build-and-publish-dev.outputs.skip_generation != 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

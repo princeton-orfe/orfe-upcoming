@@ -32,6 +32,7 @@ jobs:
     env:
       LEGACY_REPOSITORY: princeton-orfe/orfe-upcoming
       PAGES_CNAME: upcoming.orfe.princeton.edu
+      DEV_OUTPUT_DIR: pages/dev
       ICS_URL: ${{ vars.ICS_URL }}
       REPO_VARIABLE: ${{ vars.REPO_VARIABLE }}
       OUTPUT_FILE: ${{ vars.OUTPUT_FILE }}
@@ -137,11 +138,32 @@ jobs:
 
       - name: Prepare Pages artifact
         if: steps.check_change.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
-          mkdir -p pages
+          mkdir -p pages "${DEV_OUTPUT_DIR}"
           cp "$OUTPUT_ASSET" pages/events.json
+          if gh release view dev >/dev/null 2>&1; then
+            gh release download dev --pattern 'events.json' --pattern 'events-nofpo.json' --dir "${DEV_OUTPUT_DIR}"
+          fi
+          cat > "${DEV_OUTPUT_DIR}/index.html" <<'EOF'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <title>Upcoming development assets</title>
+          </head>
+          <body>
+            <h1>Upcoming development assets</h1>
+            <ul>
+              <li><a href="./events.json">events.json</a></li>
+              <li><a href="./events-nofpo.json">events-nofpo.json</a></li>
+            </ul>
+          </body>
+          </html>
+          EOF
           printf '%s\n' "${PAGES_CNAME}" > pages/CNAME
           touch pages/.nojekyll
 
