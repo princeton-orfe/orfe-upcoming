@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ORFE Upcoming Feed</title>
+  <meta name="description" content="Published ORFE Upcoming feed assets for production and development consumers.">
+  <style>
+    :root {
+      --brand: #e77500;
+      --brand-dark: #6d2e03;
+      --brand-light: #feecde;
+      --ink: #333333;
+      --ink-dark: #121212;
+      --muted: #717171;
+      --line: #d9d9d9;
+      --surface: #f7f7f7;
+      --white: #ffffff;
+      --max: 72rem;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "sofia-pro", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--white);
+      line-height: 1.55;
+    }
+    a { color: var(--brand-dark); text-underline-offset: 0.15rem; }
+    a:hover { color: var(--brand); }
+    .princeton-bar {
+      background: var(--ink-dark);
+      color: var(--white);
+      padding: 1rem 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.86rem;
+    }
+    .hero {
+      background: linear-gradient(180deg, rgba(18,18,18,0.93), rgba(18,18,18,0.82)),
+        radial-gradient(circle at top right, rgba(231,117,0,0.35), transparent 32%);
+      color: var(--white);
+      padding: 4rem 1.25rem 3rem;
+    }
+    .container {
+      width: 100%;
+      max-width: var(--max);
+      margin: 0 auto;
+    }
+    .eyebrow {
+      margin: 0 0 0.75rem;
+      color: var(--brand);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(2.3rem, 6vw, 4.1rem);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      font-weight: 700;
+      max-width: 11ch;
+    }
+    .hero p {
+      max-width: 46rem;
+      margin: 1rem 0 0;
+      font-size: 1.06rem;
+      color: rgba(255,255,255,0.9);
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+      margin-top: 1.5rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.9rem;
+      padding: 0.8rem 1.15rem;
+      border: 1px solid transparent;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .btn-primary {
+      background: var(--brand);
+      color: var(--ink-dark);
+    }
+    .btn-secondary {
+      background: transparent;
+      color: var(--white);
+      border-color: rgba(255,255,255,0.35);
+    }
+    main { padding: 2.5rem 1.25rem 4rem; }
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      border-bottom: 3px solid var(--brand);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: 1.9rem;
+      line-height: 1.1;
+      color: var(--ink-dark);
+    }
+    .lede {
+      margin: 0 0 2rem;
+      max-width: 56rem;
+      color: var(--muted);
+      font-size: 1.02rem;
+    }
+    .card-grid {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    }
+    .card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      height: 100%;
+      padding: 1.35rem;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--brand);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    }
+    .card h3 {
+      margin: 0;
+      font-size: 1.28rem;
+      line-height: 1.18;
+      color: var(--ink-dark);
+    }
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.97rem;
+    }
+    .card ul {
+      margin: 0;
+      padding-left: 1.15rem;
+      color: var(--muted);
+    }
+    .card li + li { margin-top: 0.35rem; }
+    .meta {
+      color: var(--brand);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .surface {
+      margin-top: 3rem;
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .surface .container { padding: 2.5rem 0; }
+    .notes {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    }
+    .note {
+      padding: 1rem 0;
+    }
+    .note h3 {
+      margin: 0 0 0.45rem;
+      font-size: 1.15rem;
+      color: var(--ink-dark);
+    }
+    .note p {
+      margin: 0;
+      color: var(--muted);
+    }
+    footer {
+      background: var(--ink-dark);
+      color: rgba(255,255,255,0.88);
+      border-top: 5px solid var(--brand);
+      padding: 2rem 1.25rem 2.4rem;
+    }
+    footer p {
+      margin: 0;
+      max-width: 50rem;
+      color: rgba(255,255,255,0.8);
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      background: var(--brand-light);
+      color: var(--brand-dark);
+      padding: 0.1rem 0.3rem;
+      border-radius: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="princeton-bar">Princeton University · Operations Research and Financial Engineering</div>
+  <header class="hero">
+    <div class="container">
+      <p class="eyebrow">Paper Tiger–inspired feed landing page</p>
+      <h1>ORFE Upcoming published assets</h1>
+      <p>
+        This site publishes the machine-readable ORFE Upcoming feed from GitHub Actions. Production and
+        development assets are available here for external consumers, integrations, and manual inspection.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="./events.json">Open production feed</a>
+        <a class="btn btn-secondary" href="./dev/">Browse development assets</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="section-head">
+        <h2>Available resources</h2>
+        <a href="https://github.com/pu-orfe/upcoming">Source repository</a>
+      </div>
+      <p class="lede">
+        The production JSON feed is generated from the upstream ICS source on a recurring GitHub Actions schedule.
+        Development assets are published on demand from whichever branch you dispatch the development workflow from.
+      </p>
+      <ul class="card-grid">
+        <li>
+          <article class="card">
+            <p class="meta">Production</p>
+            <h3><a href="./events.json">/events.json</a></h3>
+            <p>The current production feed served from GitHub Pages at the custom domain.</p>
+            <p>Source: the <code>ICS to JSON</code> workflow on <code>main</code>.</p>
+          </article>
+        </li>
+        <li>
+          <article class="card">
+            <p class="meta">Production release asset</p>
+            <h3><a href="https://github.com/pu-orfe/upcoming/releases/download/latest/events.json">GitHub release asset</a></h3>
+            <p>The stable release-asset URL for automated consumers that prefer GitHub downloads.</p>
+            <p>Purpose: public canonical artifact outside the Pages domain.</p>
+          </article>
+        </li>
+        <li>
+          <article class="card">
+            <p class="meta">Development</p>
+            <h3><a href="./dev/">/dev/ landing page</a></h3>
+            <p>Links to the latest development feed assets published from a manually dispatched branch run.</p>
+            <p>Purpose: validation and pre-merge testing without disturbing the production release.</p>
+          </article>
+        </li>
+        <li>
+          <article class="card">
+            <p class="meta">Development fixture</p>
+            <h3><a href="./dev/test.json">/dev/test.json</a></h3>
+            <p>A static realistic dummy payload for remote ingest and downstream integration testing.</p>
+            <p>Purpose: a stable non-empty staging endpoint when live data is empty or unsuitable.</p>
+          </article>
+        </li>
+      </ul>
+    </div>
+
+    <section class="surface">
+      <div class="container">
+        <div class="section-head">
+          <h2>How the assets are produced</h2>
+          <a href="https://github.com/pu-orfe/upcoming/actions">Workflow runs</a>
+        </div>
+        <div class="notes">
+          <section class="note">
+            <h3>Production path</h3>
+            <p>
+              The <code>ICS to JSON</code> workflow runs on <code>main</code> every 30 minutes, publishes the
+              <code>latest</code> release asset, and deploys <code>/events.json</code> to Pages.
+            </p>
+          </section>
+          <section class="note">
+            <h3>Development path</h3>
+            <p>
+              The <code>ICS to JSON (Development)</code> workflow is manual. Dispatch it from a branch to overwrite
+              the shared <code>dev</code> release and the Pages content under <code>/dev/</code>.
+            </p>
+          </section>
+          <section class="note">
+            <h3>Source code</h3>
+            <p>
+              The implementation, workflow definitions, and Pages templates all live in
+              <a href="https://github.com/pu-orfe/upcoming">pu-orfe/upcoming</a>.
+            </p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>
+        This landing page is a lightweight, Paper Tiger–inspired companion surface for the ORFE Upcoming feed.
+        It exists to explain the published JSON resources and give consumers stable URLs for production, development,
+        and test ingestion.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

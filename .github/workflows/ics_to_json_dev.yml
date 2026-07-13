@@ -163,31 +163,20 @@ jobs:
           OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
           OUTPUT_NOFPO="${NOFPO_OUTPUT_FILE:-events-nofpo.json}"
           mkdir -p pages "${DEV_OUTPUT_DIR}"
+          if curl -fsSL https://upcoming.orfe.princeton.edu/ -o pages/index.html; then
+            :
+          else
+            cp site/index.html pages/index.html
+          fi
           if gh release view latest >/dev/null 2>&1; then
             gh release download latest --pattern 'events.json' --dir pages
           else
             cp "$OUTPUT_ASSET" pages/events.json
           fi
+          cp site/dev/index.html "${DEV_OUTPUT_DIR}/index.html"
           cp "$OUTPUT_ASSET" "${DEV_OUTPUT_DIR}/events.json"
           cp "$OUTPUT_NOFPO" "${DEV_OUTPUT_DIR}/events-nofpo.json"
           cp examples/dev_test_payload.json "${DEV_OUTPUT_DIR}/test.json"
-          cat > "${DEV_OUTPUT_DIR}/index.html" <<'EOF'
-          <!doctype html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <title>Upcoming development assets</title>
-          </head>
-          <body>
-            <h1>Upcoming development assets</h1>
-            <ul>
-              <li><a href="./events.json">events.json</a></li>
-              <li><a href="./events-nofpo.json">events-nofpo.json</a></li>
-              <li><a href="./test.json">test.json</a></li>
-            </ul>
-          </body>
-          </html>
-          EOF
           printf '%s\n' "${PAGES_CNAME}" > pages/CNAME
           touch pages/.nojekyll
 

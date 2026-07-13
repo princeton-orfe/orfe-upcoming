@@ -144,28 +144,13 @@ jobs:
           set -euo pipefail
           OUTPUT_ASSET="${OUTPUT_FILE:-events.json}"
           mkdir -p pages "${DEV_OUTPUT_DIR}"
+          cp site/index.html pages/index.html
+          cp site/dev/index.html "${DEV_OUTPUT_DIR}/index.html"
           cp "$OUTPUT_ASSET" pages/events.json
           if gh release view dev >/dev/null 2>&1; then
             gh release download dev --pattern 'events.json' --pattern 'events-nofpo.json' --dir "${DEV_OUTPUT_DIR}"
           fi
           cp examples/dev_test_payload.json "${DEV_OUTPUT_DIR}/test.json"
-          cat > "${DEV_OUTPUT_DIR}/index.html" <<'EOF'
-          <!doctype html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <title>Upcoming development assets</title>
-          </head>
-          <body>
-            <h1>Upcoming development assets</h1>
-            <ul>
-              <li><a href="./events.json">events.json</a></li>
-              <li><a href="./events-nofpo.json">events-nofpo.json</a></li>
-              <li><a href="./test.json">test.json</a></li>
-            </ul>
-          </body>
-          </html>
-          EOF
           printf '%s\n' "${PAGES_CNAME}" > pages/CNAME
           touch pages/.nojekyll
 

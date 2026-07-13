@@ -24,11 +24,17 @@ Canonical development now happens in `pu-orfe/upcoming`. During the migration wi
 
 **Production** (`latest`)
 - Canonical public URL: `https://github.com/pu-orfe/upcoming/releases/download/latest/events.json`
+- Landing page: `https://upcoming.orfe.princeton.edu/`
 - Custom-domain URL: `https://upcoming.orfe.princeton.edu/events.json`
 - Legacy mirror URL: `https://github.com/princeton-orfe/orfe-upcoming/releases/download/latest/events.json`
 - Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
 - Triggers: Scheduled (every 30 minutes via native GitHub Actions cron), manual
 - Purpose: Stable production feed
+
+**Landing page**
+- URL: `https://upcoming.orfe.princeton.edu/`
+- Style: a lightweight, Paper Tiger–inspired page that explains the feed endpoints and links back to the repository
+- Purpose: human-readable documentation for production, development, and test asset consumers
 
 **Development** (`dev`)
 - Canonical public URL: `https://github.com/pu-orfe/upcoming/releases/download/dev/events.json`
