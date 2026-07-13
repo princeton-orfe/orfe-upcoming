@@ -36,10 +36,16 @@ Canonical development now happens in `pu-orfe/upcoming`. During the migration wi
 - Custom-domain asset URLs:
   - `https://upcoming.orfe.princeton.edu/dev/events.json`
   - `https://upcoming.orfe.princeton.edu/dev/events-nofpo.json`
+  - `https://upcoming.orfe.princeton.edu/dev/test.json`
 - Legacy mirror URL: `https://github.com/princeton-orfe/orfe-upcoming/releases/dev/download/events.json`
 - Published from `pu-orfe/upcoming`, then mirrored to the legacy release URL above
 - Triggers: Manual (`workflow_dispatch` on the development branch you want to test)
 - Purpose: Testing environment
+
+**Development test fixture** (`test.json`)
+- URL: `https://upcoming.orfe.princeton.edu/dev/test.json`
+- Contents: a static, realistic dummy feed based on the shape and style of previously served ORFE Upcoming assets
+- Intended use: remote ingest and downstream integration testing when the live production or development feeds are empty or otherwise unsuitable as test input
 
 ### Local Development
 

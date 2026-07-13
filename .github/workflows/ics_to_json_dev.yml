@@ -170,6 +170,7 @@ jobs:
           fi
           cp "$OUTPUT_ASSET" "${DEV_OUTPUT_DIR}/events.json"
           cp "$OUTPUT_NOFPO" "${DEV_OUTPUT_DIR}/events-nofpo.json"
+          cp examples/dev_test_payload.json "${DEV_OUTPUT_DIR}/test.json"
           cat > "${DEV_OUTPUT_DIR}/index.html" <<'EOF'
           <!doctype html>
           <html lang="en">
@@ -182,6 +183,7 @@ jobs:
             <ul>
               <li><a href="./events.json">events.json</a></li>
               <li><a href="./events-nofpo.json">events-nofpo.json</a></li>
+              <li><a href="./test.json">test.json</a></li>
             </ul>
           </body>
           </html>

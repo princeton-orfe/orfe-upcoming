@@ -148,6 +148,7 @@ jobs:
           if gh release view dev >/dev/null 2>&1; then
             gh release download dev --pattern 'events.json' --pattern 'events-nofpo.json' --dir "${DEV_OUTPUT_DIR}"
           fi
+          cp examples/dev_test_payload.json "${DEV_OUTPUT_DIR}/test.json"
           cat > "${DEV_OUTPUT_DIR}/index.html" <<'EOF'
           <!doctype html>
           <html lang="en">
@@ -160,6 +161,7 @@ jobs:
             <ul>
               <li><a href="./events.json">events.json</a></li>
               <li><a href="./events-nofpo.json">events-nofpo.json</a></li>
+              <li><a href="./test.json">test.json</a></li>
             </ul>
           </body>
           </html>
