@@ -143,6 +143,8 @@ These environment variables and workflow inputs control behavior at runtime.
 
 Boolean envs accept: `1,true,yes,on` (case-insensitive) for true.
 
+Titles are guaranteed non-empty (enforced by `minLength: 1` in the schema). The fill order is: enriched subtitle → `FALLBACK_PREPEND_TEXT` template (+ speaker unless disabled) → a series-derived last resort such as `An Optimization Seminar Talk` (`A Seminar Talk` when the event has no series). The fallback pass runs even when title enrichment is disabled.
+
 ### Transform parameters
 
 | Name | Scope | Type | Default | Purpose |
